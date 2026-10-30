@@ -1,9 +1,10 @@
 # Publishes the static build to GitHub Pages (HTTPS, which WebHID and Web Bluetooth need outside localhost).
-# Manual only: enable Pages for the repository (Settings > Pages > GitHub Actions) and run it from the Actions tab.
-# On a private repository this needs a plan that includes Pages.
+# Runs on every push to main (and manually from the Actions tab). Requires Settings > Pages > Source: GitHub Actions.
 name: Deploy to Pages
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
