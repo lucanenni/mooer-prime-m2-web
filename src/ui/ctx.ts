@@ -17,7 +17,7 @@ export const log = (msg: string) => {
 
 export const device = new PrimeM2Device(log);
 
-export type Tab = "chain" | "mixer" | "settings" | "backup";
+export type Tab = "chain" | "mixer" | "looper" | "settings" | "backup";
 
 /** Shared UI state. `render` is set by main.ts. */
 export const ui = {

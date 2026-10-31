@@ -6,7 +6,7 @@ A browser-based editor for the **Mooer Prime M2** multi-effects pedal. It talks 
 
 ## What it does
 
-- Lists all 80 presets and selects them with one click. It follows preset changes made on the pedal. The editor is split in four tabs: **Effects**, **Mixer**, **Settings** and **Backup**.
+- Lists all 80 presets and selects them with one click. It follows preset changes made on the pedal. The editor is split in five tabs: **Effects**, **Mixer**, **Looper**, **Settings** and **Backup**.
 - Edits the effect chain of a preset:
   - adds, changes, removes and **reorders** effects, with all categories and models;
   - turns effects on and off and edits every parameter with sliders in the right units (dB, Hz, ms, semitones);
@@ -43,7 +43,7 @@ No pedal at hand? Open the page with `?demo` (for example `http://localhost:5173
 - Edits are sent to the pedal immediately. They live in the pedal's edit buffer until you save the preset; selecting another preset discards them.
 - Mixer, tuner, drum and other global settings are written to the pedal's system state straight away. The "System state" panel has **Restore original**, which writes back the values read when you connected.
 - Writing a whole preset (restore) replaces the slot. The app downloads a backup of the slot first and verifies the result, but keep your own backups of presets you care about.
-- Looper upload/download and the MIDI mapping editor are not implemented. Looper buttons and some settings are marked as unverified in [TESTING.md](TESTING.md).
+- Looper upload/download and the MIDI mapping editor are not implemented. Some settings are marked as unverified in [TESTING.md](TESTING.md).
 
 ## Project layout
 

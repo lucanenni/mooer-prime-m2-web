@@ -22,6 +22,7 @@ let lastPresetIndex: number | undefined;
 const TABS: { id: Tab; label: string }[] = [
   { id: "chain", label: "Effects" },
   { id: "mixer", label: "Mixer" },
+  { id: "looper", label: "Looper" },
   { id: "settings", label: "Settings" },
   { id: "backup", label: "Backup" },
 ];
@@ -110,8 +111,11 @@ function editor(): HTMLElement {
     case "mixer":
       box.append(mixerSection(), vocalFxSection());
       break;
+    case "looper":
+      box.append(looperSection());
+      break;
     case "settings":
-      box.append(globalSection(), displaySection(), tempoSection(), tunerSection(), drumSection(), looperSection());
+      box.append(globalSection(), displaySection(), tempoSection(), tunerSection(), drumSection());
       break;
     case "backup":
       box.append(backupBar());
