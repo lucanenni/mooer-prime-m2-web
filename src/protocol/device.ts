@@ -30,6 +30,8 @@ interface Request {
   /** Called instead of `handler` when the request times out or the link goes away. */
   fail?: (reason: string) => void;
   retried: boolean;
+  /** The pedal may not answer this command: a short wait, and no connection warning on timeout. */
+  optionalReply?: boolean;
 }
 
 const RETRYABLE_READS = new Set([0x01, 0x11, 0x21, 0x23, 0x29, 0x33, 0x91, 0xa9]);
@@ -211,7 +213,7 @@ export class PrimeM2Device extends EventTarget {
   /** `4d action`: looper button, actions 1...5 (which is which is a guess, see TESTING.md). */
   looperAction(action: number): void {
     this.log(`Looper action ${action}`);
-    this.send(Uint8Array.of(0x4d, action), (p) => this.log(`Looper reply: ${frame.hex(p)}`));
+    this.send(Uint8Array.of(0x4d, action), (p) => this.log(`Looper reply: ${frame.hex(p)}`), undefined, undefined, true);
     this.changed();
   }
 
@@ -552,8 +554,8 @@ export class PrimeM2Device extends EventTarget {
 
   // ---- Request queue -------------------------------------------------------
 
-  private send(payload: Uint8Array, handler: (p: Uint8Array) => void, key?: string, fail?: (reason: string) => void): void {
-    const request: Request = { payload, key, handler, fail, retried: false };
+  private send(payload: Uint8Array, handler: (p: Uint8Array) => void, key?: string, fail?: (reason: string) => void, optionalReply = false): void {
+    const request: Request = { payload, key, handler, fail, retried: false, optionalReply };
     const existing = key === undefined ? -1 : this.queue.findIndex((q) => q.key === key);
     if (existing >= 0) this.queue[existing] = request;
     else this.queue.push(request);
@@ -588,7 +590,7 @@ export class PrimeM2Device extends EventTarget {
       this.connectionIssue = "Writing to the pedal failed. Check the connection.";
       this.changed();
     });
-    this.timeout = setTimeout(() => this.onTimeout(), 2000);
+    this.timeout = setTimeout(() => this.onTimeout(), request.optionalReply ? 500 : 2000);
   }
 
   private onTimeout(): void {
@@ -599,6 +601,8 @@ export class PrimeM2Device extends EventTarget {
       this.log(`No reply 0x${replyOf(stuck).toString(16)}, retrying`);
       stuck.retried = true;
       this.queue.unshift(stuck);
+    } else if (stuck.optionalReply) {
+      this.log(`No reply 0x${replyOf(stuck).toString(16)} (the command may not be answered)`);
     } else {
       this.log(`Timeout waiting for reply 0x${replyOf(stuck).toString(16)}`);
       this.connectionIssue = "The pedal stopped answering. Check the cable or reconnect.";

@@ -15,7 +15,7 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 |---|---|
 | Backup / restore (export, import, audition, verified write) | Export first, then audition, finally write to a slot you don't need |
 | Tempo (`35`) | The pedal accepts 40–260 and keeps it after saving the preset |
-| Looper buttons (`4d 1…5`) | Meaning of each action is a guess: 1 Rec, 5 Play, 2 Pause, 3 Undo, 4 Clear |
+| Looper buttons (`4d 1…5`) | Verified: 1 Rec (keeps overdubbing layers until stopped), 3 Undo (works in play mode, removes everything overdubbed in the last rec session). Still a guess: 5 Play, 2 Pause, 4 Clear. The pedal sends no reply to `4d` |
 | Copy preset to another slot | Copy to a slot you don't need; check the backup download and the "verified" message |
 | Connection messages | Unplug the pedal while connected, and try to connect while Mooer Studio is open: the banner should explain what happened |
 | MIDI table (`b1`) | Copy the `MIDI table …` log line to decode the byte pairs |
