@@ -1,4 +1,4 @@
-import { device, ui, scheduleRender } from "./ctx";
+import { device, log, ui, scheduleRender } from "./ctx";
 import { h } from "./dom";
 import { byteSlider, byteSliderRange, onOff } from "./widgets";
 import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, eqDb, tapBpm, tunerHz } from "./format";
@@ -13,7 +13,9 @@ export function tapTempo() {
   taps.push(now);
   taps = taps.slice(-5);
   const bpm = tapBpm(taps);
-  if (bpm !== undefined) device.setTempo(bpm);
+  if (bpm === undefined) return log(`Tap ${taps.length}: need one more tap`);
+  log(`Tap ${taps.length}: mean ${Math.round(60000 / bpm)} ms -> ${Math.round(bpm)} BPM`);
+  device.setTempo(bpm);
 }
 
 /** [41..42] speed = the tempo, u16 LE, 40...260; [43] pattern (0 = first); [46] sync with the looper (1 = on assumed). */
@@ -55,7 +57,8 @@ export function drumSection(): HTMLElement {
         },
       }),
       speedLabel,
-      h("button", { onclick: tapTempo }, "Tap"),
+      // Fires on press: the page re-renders after each write, which would swallow the click of a fast tap.
+      h("button", { onpointerdown: tapTempo, onclick: (e: MouseEvent) => e.detail === 0 && tapTempo() }, "Tap"),
     ),
     h(
       "div",
