@@ -23,7 +23,7 @@ See [TESTING.md](TESTING.md) for what has been verified on a real pedal and what
 
 - A desktop **Chrome** or **Edge** (or another Chromium browser). WebHID and Web Bluetooth are not available in Safari or Firefox.
 - The page must be served over HTTPS or from `localhost`.
-- USB is preferred (faster, and required for backup and restore). Close other programs that use the pedal first: only one application can talk to it at a time.
+- USB is preferred (faster, and required for backup and restore). Close other programs that use the pedal first: only one application can talk to it at a time. If you unplug the cable the browser forgets the permission, so click **Connect USB** again after plugging it back in.
 
 ## Run it
 

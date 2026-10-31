@@ -69,34 +69,6 @@ export async function disconnect() {
   scheduleRender();
 }
 
-let watching = false;
-
-/** After an unplug, looks for the authorised pedal every 1.5 s, in case the browser sends no `connect` event. */
-async function watchForPedal() {
-  if (watching) return;
-  watching = true;
-  log("USB: waiting for the pedal to come back");
-  let reported = false;
-  try {
-    while (!links.usb) {
-      await wait(1500);
-      if (links.usb || connecting) continue;
-      const known = await navigator.hid.getDevices();
-      const found = known.some((d) => d.vendorId === 0x34db && d.productId === 13);
-      if (!reported) {
-        reported = true;
-        log(`USB: ${known.length} authorised device(s) after the unplug${found ? "" : " (the pedal is not among them: click Connect USB)"}`);
-      }
-      if (found) {
-        log("USB: pedal found again");
-        await connectUsb(false);
-      }
-    }
-  } finally {
-    watching = false;
-  }
-}
-
 /** Reconnects a previously authorised pedal and follows plug / unplug events. */
 export function initConnection() {
   if (!hidSupported()) return;
@@ -105,9 +77,8 @@ export function initConnection() {
       log("USB: pedal unplugged");
       device.detach("USB");
       links.usb = undefined;
-      connectionError = "The pedal was unplugged. Plug it back in to continue.";
+      connectionError = "The pedal was unplugged. Plug it back in and click Connect USB (the browser forgets the permission when the cable is removed).";
       scheduleRender();
-      void watchForPedal();
     }
   });
   navigator.hid.addEventListener("connect", (e) => {
