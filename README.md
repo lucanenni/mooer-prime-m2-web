@@ -43,7 +43,7 @@ No pedal at hand? Open the page with `?demo` (for example `http://localhost:5173
 - Edits are sent to the pedal immediately. They live in the pedal's edit buffer until you save the preset; selecting another preset discards them.
 - Mixer, tuner, drum and other global settings are written to the pedal's system state straight away. The "System state" panel has **Restore original**, which writes back the values read when you connected.
 - Writing a whole preset (restore) replaces the slot. The app downloads a backup of the slot first and verifies the result, but keep your own backups of presets you care about.
-- Loop import replaces the content of a slot: export the loop first if you want to keep it. Samples (Drive, Pre-Amp, Entire Amp, Cab) and the MIDI mapping editor are not implemented. Some settings are marked as unverified in [TESTING.md](TESTING.md).
+- Loop import replaces the content of a slot: export the loop first if you want to keep it. Samples (Drive, Pre-Amp, Entire Amp, Cab) are not implemented. The MIDI assignment editor is experimental. Some settings are marked as unverified in [TESTING.md](TESTING.md).
 
 ## Project layout
 

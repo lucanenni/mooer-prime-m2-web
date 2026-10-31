@@ -1,6 +1,5 @@
 import { device, log, ui, scheduleRender } from "./ctx";
 import { h } from "./dom";
-import { MIDI_FUNCTIONS } from "../protocol/models";
 import { download } from "./backup";
 import { LOOP_MAX_BYTES, LOOP_SAMPLE_RATE, buildWav, isPedalFormat, packPcm24, readWav, wavControl, LOOP_CONTROL_BYTES } from "../protocol/loopFile";
 import { byteSlider, byteSliderRange, onOff } from "./widgets";
@@ -138,14 +137,6 @@ export function displaySection(): HTMLElement {
       ]).flat()),
       h("span", { class: "hint" }, "unverified"),
     ),
-    h("div", { class: "param" }, h("label", {}, "MIDI"), h("button", { onclick: () => device.readMidiTable() }, "Read assignments")),
-    device.midiTable.length
-      ? h(
-          "div",
-          { class: "hint" },
-          device.midiTable.map((a, i) => `${MIDI_FUNCTIONS[i]}: ${a.assigned ? a.value : "—"}`).join(" · "),
-        )
-      : h("span"),
   );
   return box;
 }

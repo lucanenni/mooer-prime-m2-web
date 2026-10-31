@@ -84,6 +84,9 @@ export function attachDemoPedal(device: PrimeM2Device): void {
       case 0x33: return [0x34, stored[p[1]].bpm & 0xff, stored[p[1]].bpm >> 8];
       case 0x4d: return [0x4e, 1];
       case 0x53: return [0x54, ...Array.from({ length: 10 }, () => [1, 0, 0, 0, 0, 0, ...encodeName("")]).flat()];
+      case 0xb1: return [0xb2, ...[[1, 26], [1, 25], [1, 10], [1, 22], [1, 11], [1, 24], [0, 255], [0, 255], [1, 14], ...Array.from({ length: 11 }, () => [0, 255])].flat()];
+      case 0xb3: return [0xb4, 1, 0, 0];
+      case 0xb5: case 0xb7: return [p[0] + 1, 1];
       case 0x65: return [0x66, ...Array.from({ length: (p[4] | (p[5] << 8)) - (p[2] | (p[3] << 8)) + 1 }, (_, i) => { const n = (p[2] | (p[3] << 8)) + i; return [p[1], n & 0xff, n >> 8, 1, 1, ...encodeName(`PATTERN ${n}`), ...new Array(34).fill(0)]; }).flat()];
       case 0x91: return [0x92, 80, 0];
       case 0xb1: return [0xb2];

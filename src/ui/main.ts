@@ -7,6 +7,7 @@ import { moduleCard, presetList } from "./chain";
 import { connectionBanner, initConnection, toolbar } from "./connection";
 import { type Tab, device, logPanel, ui } from "./ctx";
 import { h } from "./dom";
+import { midiSection } from "./midi";
 import { renderState, statePanel } from "./inspector";
 import { mixerSection } from "./mixer";
 import { displaySection, drumSection, globalSection, looperSection, tunerSection } from "./settings";
@@ -119,7 +120,7 @@ function editor(): HTMLElement {
       box.append(looperSection());
       break;
     case "settings":
-      box.append(globalSection(), displaySection(), tunerSection());
+      box.append(globalSection(), displaySection(), tunerSection(), midiSection());
       break;
     case "backup":
       box.append(backupBar());

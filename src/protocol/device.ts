@@ -33,6 +33,8 @@ interface Request {
   retried: boolean;
   /** The pedal may not answer this command: a short wait, and no connection warning on timeout. */
   optionalReply?: boolean;
+  /** Overrides the default wait for the reply. */
+  timeoutMs?: number;
 }
 
 const RETRYABLE_READS = new Set([0x01, 0x11, 0x21, 0x23, 0x29, 0x33, 0x63, 0x91, 0xa9]);
@@ -212,6 +214,39 @@ export class PrimeM2Device extends EventTarget {
   }
 
   /** `b1` -> `b2`: the MIDI mapping table. Only logged: the entry layout is not decoded yet. */
+  /** `b3 function`: the pedal listens for a MIDI message and answers `b4 status ...` (status 1 = learned,
+   *  6 = already used by another function). Waits up to 20 s; rejects when nothing arrives. */
+  midiLearn(index: number): Promise<{ status: number; bytes: number[] }> {
+    this.log(`MIDI learn: function ${index}`);
+    return new Promise((resolve, reject) =>
+      this.send(
+        Uint8Array.of(0xb3, index),
+        (p) => {
+          this.log(`MIDI learn reply: ${frame.hex(p)}`);
+          resolve({ status: p[1] ?? 0, bytes: Array.from(p.subarray(2)) });
+        },
+        undefined,
+        (reason) => reject(new Error(reason)),
+        true,
+        20000,
+      ),
+    );
+  }
+
+  /** `b5 function`: removes the MIDI assignment of a function, then re-reads the table. */
+  midiRemove(index: number): void {
+    this.log(`MIDI remove: function ${index}`);
+    this.send(Uint8Array.of(0xb5, index), (p) => this.log(`MIDI remove reply: ${frame.hex(p)}`), undefined, undefined, true);
+    this.readMidiTable();
+  }
+
+  /** `b7`: stores the learned assignments, then re-reads the table. */
+  midiSave(): void {
+    this.log("MIDI save");
+    this.send(Uint8Array.of(0xb7), (p) => this.log(`MIDI save reply: ${frame.hex(p)}`), undefined, undefined, true);
+    this.readMidiTable();
+  }
+
   readMidiTable(): void {
     this.send(Uint8Array.of(0xb1), (p) => {
       this.log(`MIDI table (${p.length} bytes): ${frame.hex(p)}`);
@@ -615,8 +650,8 @@ export class PrimeM2Device extends EventTarget {
 
   // ---- Request queue -------------------------------------------------------
 
-  private send(payload: Uint8Array, handler: (p: Uint8Array) => void, key?: string, fail?: (reason: string) => void, optionalReply = false): void {
-    const request: Request = { payload, key, handler, fail, retried: false, optionalReply };
+  private send(payload: Uint8Array, handler: (p: Uint8Array) => void, key?: string, fail?: (reason: string) => void, optionalReply = false, timeoutMs?: number): void {
+    const request: Request = { payload, key, handler, fail, retried: false, optionalReply, timeoutMs };
     const existing = key === undefined ? -1 : this.queue.findIndex((q) => q.key === key);
     if (existing >= 0) this.queue[existing] = request;
     else this.queue.push(request);
@@ -651,7 +686,7 @@ export class PrimeM2Device extends EventTarget {
       this.connectionIssue = "Writing to the pedal failed. Check the connection.";
       this.changed();
     });
-    this.timeout = setTimeout(() => this.onTimeout(), request.optionalReply ? 500 : 2000);
+    this.timeout = setTimeout(() => this.onTimeout(), request.timeoutMs ?? (request.optionalReply ? 500 : 2000));
   }
 
   private onTimeout(): void {
@@ -664,6 +699,7 @@ export class PrimeM2Device extends EventTarget {
       this.queue.unshift(stuck);
     } else if (stuck.optionalReply) {
       this.log(`No reply 0x${replyOf(stuck).toString(16)} (the command may not be answered)`);
+      stuck.fail?.("No reply");
     } else {
       this.log(`Timeout waiting for reply 0x${replyOf(stuck).toString(16)}`);
       this.connectionIssue = "The pedal stopped answering. Check the cable or reconnect.";
