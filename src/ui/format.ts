@@ -26,6 +26,19 @@ export const SLEEP_OPTIONS = [255, 5, 10, 15, 20, 30];
 /** Tuner reference pitch in Hz: 430 + raw (0...15). */
 export const tunerHz = (raw: number) => 430 + raw;
 
+/** Adds a tap at time `now` (ms) to the last taps (at most 5). The series restarts after a pause of
+ *  3 s, or when the new interval is far from the average one (more than 1.6 times longer or shorter). */
+export function addTap(taps: number[], now: number): number[] {
+  const last = taps[taps.length - 1];
+  if (last === undefined || now - last > 3000) return [now];
+  if (taps.length >= 2) {
+    const mean = (last - taps[0]) / (taps.length - 1);
+    const gap = now - last;
+    if (gap > mean * 1.6 || gap < mean / 1.6) return [now];
+  }
+  return [...taps, now].slice(-5);
+}
+
 /** Tempo-tap: BPM from a list of tap times in ms, or undefined with fewer than two taps. */
 export function tapBpm(times: number[]): number | undefined {
   if (times.length < 2) return undefined;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as catalog from "../src/protocol/catalog";
 import { encodeName, parseLooperFiles, parseNameList } from "../src/protocol/models";
-import { INPUT_GAIN, SLEEP_OPTIONS, eqDb, levelDb, panText, tapBpm, tunerHz } from "../src/ui/format";
+import { INPUT_GAIN, SLEEP_OPTIONS, addTap, eqDb, levelDb, panText, tapBpm, tunerHz } from "../src/ui/format";
 
 describe("value formatting", () => {
   it("converts mixer levels (raw / 2 - 30 dB)", () => {
@@ -32,6 +32,12 @@ describe("value formatting", () => {
   });
 
   it("computes tap tempo from tap times", () => {
+    expect(addTap([], 100)).toEqual([100]);
+    expect(addTap([0, 500], 1000)).toEqual([0, 500, 1000]);
+    expect(addTap([0, 500, 1000], 3500)).toEqual([3500]); // far longer than the others: restart
+    expect(addTap([0, 500, 1000], 1200)).toEqual([1200]); // far shorter: restart
+    expect(addTap([0, 500, 1000], 4500)).toEqual([4500]); // pause over 3 s
+    expect(addTap([0, 500, 1000, 1500, 2000], 2520)).toEqual([500, 1000, 1500, 2000, 2520]);
     expect(tapBpm([0])).toBeUndefined();
     expect(tapBpm([0, 500, 1000])).toBeCloseTo(120);
     expect(tapBpm([1000, 1000])).toBeUndefined();

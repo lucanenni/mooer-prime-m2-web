@@ -1,17 +1,14 @@
 import { device, log, ui, scheduleRender } from "./ctx";
 import { h } from "./dom";
 import { byteSlider, byteSliderRange, onOff } from "./widgets";
-import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, eqDb, tapBpm, tunerHz } from "./format";
+import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, addTap, eqDb, tapBpm, tunerHz } from "./format";
 
 // ---- Drum machine and tempo --------------------------------------------------
 
 let taps: number[] = [];
 
 export function tapTempo() {
-  const now = Date.now();
-  if (taps.length && now - taps[taps.length - 1] > 3000) taps = [];
-  taps.push(now);
-  taps = taps.slice(-5);
+  taps = addTap(taps, Date.now());
   const bpm = tapBpm(taps);
   if (bpm === undefined) return log(`Tap ${taps.length}: need one more tap`);
   log(`Tap ${taps.length}: mean ${Math.round(60000 / bpm)} ms -> ${Math.round(bpm)} BPM`);
