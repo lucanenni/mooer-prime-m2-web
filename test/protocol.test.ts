@@ -144,7 +144,6 @@ function makePedal(device: PrimeM2Device) {
           case 0x91: return reply([0x92, 87, 0]);
           case 0x25: return reply([0x26, 1]);
           case 0x2d: return reply([0x2e, p[1], 1]);
-          case 0x35: return reply([0x36, 1]);
           case 0x53: {
             const rec = (used: number, ms: number, name: string) => [used, 1, ms & 0xff, (ms >> 8) & 0xff, 0, 0, ...encodeName(name)];
             return reply([0x54, ...rec(1, 3000, "Loop A"), ...rec(0, 0, "")]);
@@ -231,10 +230,10 @@ describe("PrimeM2Device session", () => {
 
     device.setTempo(140);
     await vi.advanceTimersByTimeAsync(100);
-    expect(requests.filter((r) => r[0] === 0x35).pop()).toEqual([0x35, 140, 0]);
+    expect(requests.filter((r) => r[0] === 0x13).pop()!.slice(41, 43)).toEqual([140, 0]);
     device.setTempo(999); // clamped to the 40...260 range
-    await vi.advanceTimersByTimeAsync(100);
-    expect(requests.filter((r) => r[0] === 0x35).pop()).toEqual([0x35, 4, 1]);
+    await vi.advanceTimersByTimeAsync(400); // the pedal is deaf for 300 ms after a state write
+    expect(requests.filter((r) => r[0] === 0x13).pop()!.slice(41, 43)).toEqual([4, 1]);
 
     device.moveModule(1, 2);
     await vi.advanceTimersByTimeAsync(1000);

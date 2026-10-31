@@ -6,7 +6,7 @@ A browser-based editor for the **Mooer Prime M2** multi-effects pedal. It talks 
 
 ## What it does
 
-- Lists all 80 presets and selects them with one click. It follows preset changes made on the pedal. The editor is split in five tabs: **Effects**, **Mixer**, **Looper**, **Settings** and **Backup**.
+- Lists all 80 presets and selects them with one click. It follows preset changes made on the pedal. The editor is split in six tabs: **Effects**, **Mixer**, **Drum**, **Looper**, **Settings** and **Backup**.
 - Edits the effect chain of a preset:
   - adds, changes, removes and **reorders** effects, with all categories and models;
   - turns effects on and off and edits every parameter with sliders in the right units (dB, Hz, ms, semitones);

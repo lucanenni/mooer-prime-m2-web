@@ -46,6 +46,8 @@ export class PrimeM2Device extends EventTarget {
   serial?: string;
   battery?: number;
   tempo?: number;
+  /** Whether the drum machine was started from here; the pedal's own state is not read. */
+  drumPlaying = false;
   presetNames = new Map<number, string>();
   /** Drum pattern names (category 7 of the named-list command), in pattern order. */
   drumNames: string[] = [];
@@ -217,14 +219,23 @@ export class PrimeM2Device extends EventTarget {
     this.changed();
   }
 
-  /** `35 bpm(u16 LE)`: sets the tempo of the active preset. */
+  /** `47 state 00 00`: starts (1) or stops (0) the drum machine. The pedal may not reply. */
+  drumPlay(on: boolean): void {
+    this.drumPlaying = on;
+    this.log(`Drum ${on ? "play" : "stop"}`);
+    this.send(Uint8Array.of(0x47, on ? 1 : 0, 0, 0), (p) => this.log(`Drum reply: ${frame.hex(p)}`), undefined, undefined, true);
+    this.changed();
+  }
+
+  /** The tempo is the drum speed: bytes [41..42] of the system state (u16 LE, 40...260). */
   setTempo(bpm: number): void {
+    const state = this.systemState;
+    if (!state || state.length <= 42) return;
     const value = Math.max(40, Math.min(260, Math.round(bpm)));
     this.tempo = value;
-    this.send(Uint8Array.of(0x35, value & 0xff, value >> 8), (p) => {
-      if (p.length < 2 || p[1] !== 1) this.log(`Tempo write reply: ${frame.hex(p)}`);
-    }, "tempo");
-    this.changed();
+    state[41] = value & 0xff;
+    state[42] = value >> 8;
+    this.writeSystemState(state);
   }
 
   /** The current 99-byte system state (opcode byte included), or undefined before the first sync. */

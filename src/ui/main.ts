@@ -9,7 +9,7 @@ import { type Tab, device, logPanel, ui } from "./ctx";
 import { h } from "./dom";
 import { renderState, statePanel } from "./inspector";
 import { mixerSection } from "./mixer";
-import { displaySection, drumSection, globalSection, looperSection, tempoSection, tunerSection } from "./settings";
+import { displaySection, drumSection, globalSection, looperSection, tunerSection } from "./settings";
 import "./style.css";
 import { vocalFxSection } from "./vocalfx";
 
@@ -22,6 +22,7 @@ let lastPresetIndex: number | undefined;
 const TABS: { id: Tab; label: string }[] = [
   { id: "chain", label: "Effects" },
   { id: "mixer", label: "Mixer" },
+  { id: "drum", label: "Drum" },
   { id: "looper", label: "Looper" },
   { id: "settings", label: "Settings" },
   { id: "backup", label: "Backup" },
@@ -111,11 +112,14 @@ function editor(): HTMLElement {
     case "mixer":
       box.append(mixerSection(), vocalFxSection());
       break;
+    case "drum":
+      box.append(drumSection());
+      break;
     case "looper":
       box.append(looperSection());
       break;
     case "settings":
-      box.append(globalSection(), displaySection(), tempoSection(), tunerSection(), drumSection());
+      box.append(globalSection(), displaySection(), tunerSection());
       break;
     case "backup":
       box.append(backupBar());

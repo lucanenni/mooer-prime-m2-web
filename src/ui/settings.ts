@@ -3,7 +3,7 @@ import { h } from "./dom";
 import { byteSlider, byteSliderRange, onOff } from "./widgets";
 import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, eqDb, tapBpm, tunerHz } from "./format";
 
-// ---- Tempo -------------------------------------------------------------------
+// ---- Drum machine and tempo --------------------------------------------------
 
 let taps: number[] = [];
 
@@ -16,43 +16,7 @@ export function tapTempo() {
   if (bpm !== undefined) device.setTempo(bpm);
 }
 
-export function tempoSection(): HTMLElement {
-  const bpm = device.tempo ?? 120;
-  const label = h("span", { class: "val" }, `${bpm} BPM`);
-  return h(
-    "section",
-    { class: "mixer" },
-    h("strong", {}, "Tempo"),
-    h(
-      "div",
-      { class: "param" },
-      h("label", {}, "BPM"),
-      h("input", {
-        type: "range",
-        min: "40",
-        max: "260",
-        value: String(Math.max(40, Math.min(260, bpm))),
-        oninput: (e: Event) => {
-          const v = Number((e.target as HTMLInputElement).value);
-          device.setTempo(v);
-          label.textContent = `${v} BPM`;
-        },
-        onpointerdown: () => (ui.dragging = true),
-        onpointerup: () => {
-          ui.dragging = false;
-          scheduleRender();
-        },
-      }),
-      label,
-      h("button", { onclick: tapTempo }, "Tap"),
-    ),
-    h("span", { class: "hint" }, "Applies to the active preset; save the preset to keep it."),
-  );
-}
-
-// ---- Drum machine -------------------------------------------------------------
-
-/** [41..42] speed, u16 LE, 40...260, [43] pattern (0 = first), [46] sync with the looper (1 = on assumed). */
+/** [41..42] speed = the tempo, u16 LE, 40...260; [43] pattern (0 = first); [46] sync with the looper (1 = on assumed). */
 export function drumSection(): HTMLElement {
   const state = device.systemStateBytes;
   const box = h("section", { class: "mixer" }, h("strong", {}, "Drum"));
@@ -63,11 +27,17 @@ export function drumSection(): HTMLElement {
   const count = Math.max(60, device.drumNames.length, state[43] + 1);
   for (let i = 0; i < count; i++) pattern.append(h("option", { value: String(i), selected: i === state[43] }, device.drumNames[i] || `Pattern ${i + 1}`));
   box.append(
-    h("div", { class: "param" }, h("label", {}, "Pattern"), pattern),
     h(
       "div",
       { class: "param" },
-      h("label", {}, "Speed"),
+      h("label", {}, "Pattern"),
+      pattern,
+      h("button", { class: device.drumPlaying ? "primary" : "", title: "Start or stop the drum machine", onclick: () => device.drumPlay(!device.drumPlaying) }, device.drumPlaying ? "⏸ Pause" : "▶ Play"),
+    ),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Tempo"),
       h("input", {
         type: "range",
         min: "40",
@@ -75,8 +45,7 @@ export function drumSection(): HTMLElement {
         value: String(Math.max(40, Math.min(260, speed))),
         oninput: (e: Event) => {
           const v = Number((e.target as HTMLInputElement).value);
-          device.setSystemByte(41, v & 0xff);
-          device.setSystemByte(42, v >> 8);
+          device.setTempo(v);
           speedLabel.textContent = `${v} BPM`;
         },
         onpointerdown: () => (ui.dragging = true),
@@ -86,12 +55,19 @@ export function drumSection(): HTMLElement {
         },
       }),
       speedLabel,
+      h("button", { onclick: tapTempo }, "Tap"),
+    ),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Looper"),
       h("label", { class: "on" }, h("input", {
         type: "checkbox",
         checked: state[46] === 1,
         onchange: (e: Event) => device.setSystemByte(46, (e.target as HTMLInputElement).checked ? 1 : 0),
-      }), " sync looper"),
+      }), " sync drum with the looper"),
     ),
+    h("span", { class: "hint" }, "The tempo is the drum speed. Play/Pause is unverified."),
   );
   return box;
 }
