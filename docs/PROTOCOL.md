@@ -43,7 +43,7 @@ The CRC (poly `0x1021`, init 0, xorout `0xFFFF`, not reflected) covers the lengt
 | `2d id 04 from to` | `2e id ok` | move an effect: out of `from`, into position `to` | verified |
 | `2f pp name[20]` | `30 01` | save the edit buffer to preset `pp` | verified |
 | `33 pp` | `34 bpm(u16)` | tempo of preset `pp` | verified |
-| `47 state 00 00` | | drum machine play (1) / stop (0); no reply expected | *unverified* |
+| `47 state 00 00` | | drum machine play (1) / stop (0); no reply | verified |
 | `4d n` | | looper button, `n` = 1 Rec, 2 Pause, 3 Undo, 4 Clear, 5 Play. The pedal sends no reply | verified |
 | `53 01 0a` | `54` | looper file list: records of 26 bytes (recorded flag: 1 = has a loop, sync flag, time in ms u32, name[20]) | verified |
 | | `69` | pushed by the pedal when a loop changes (observed after a recording: `06 01 00 01 00 <ms u32> <name>`); the app refreshes the file list | observed |

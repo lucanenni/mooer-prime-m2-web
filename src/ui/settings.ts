@@ -67,7 +67,7 @@ export function drumSection(): HTMLElement {
         onchange: (e: Event) => device.setSystemByte(46, (e.target as HTMLInputElement).checked ? 1 : 0),
       }), " sync drum with the looper"),
     ),
-    h("span", { class: "hint" }, "The tempo is the drum speed. Play/Pause is unverified."),
+    h("span", { class: "hint" }, "The tempo is the drum speed."),
   );
   return box;
 }
