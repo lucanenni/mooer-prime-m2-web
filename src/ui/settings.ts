@@ -214,7 +214,7 @@ export function looperSection(): HTMLElement {
   // [48]: looper song, 1...8.
   const song = h("select", { onchange: (e: Event) => device.setSystemByte(48, Number((e.target as HTMLSelectElement).value)) });
   for (let i = 1; i <= 8; i++) song.append(h("option", { value: String(i), selected: i === state[48] }, `Song ${i}`));
-  // Actions are sent as `4d n`; which button is which is a guess, not verified.
+  // Actions are sent as `4d n` (the pedal does not reply).
   const action = (label: string, n: number, title: string, confirmText?: string) =>
     h("button", { title, onclick: () => (!confirmText || confirm(confirmText)) && device.looperAction(n) }, label);
   box.append(
@@ -223,12 +223,11 @@ export function looperSection(): HTMLElement {
     h(
       "div",
       { class: "backup" },
-      action("● Rec", 1, "Record / overdub (action 1, inferred)"),
-      action("▶ Play", 5, "Play (action 5, inferred)"),
-      action("⏸ Pause", 2, "Pause / stop (action 2, inferred)"),
-      action("↶ Undo", 3, "Undo (action 3, inferred)"),
-      action("🗑 Clear", 4, "Clear the loop (action 4, inferred)", "Clear the loop on the pedal? This may delete the recording."),
-      h("span", { class: "hint" }, "Button meanings are guesses, not verified."),
+      action("● Rec", 1, "Record, and keep overdubbing layers until Play"),
+      action("▶ Play", 5, "Leave recording and play what is recorded"),
+      action("⏸ Pause", 2, "Pause everything"),
+      action("↶ Undo", 3, "Undo the layers of the last rec session (in play mode)"),
+      action("🗑 Clear", 4, "Clear the loop", "Clear the loop on the pedal? The recording is deleted."),
     ),
     h(
       "div",

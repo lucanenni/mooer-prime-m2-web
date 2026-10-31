@@ -210,7 +210,7 @@ export class PrimeM2Device extends EventTarget {
     this.send(Uint8Array.of(0xb1), (p) => this.log(`MIDI table (${p.length} bytes): ${frame.hex(p)}`));
   }
 
-  /** `4d action`: looper button, actions 1...5 (which is which is a guess, see TESTING.md). */
+  /** `4d action`: looper button, 1 Rec, 2 Pause, 3 Undo, 4 Clear, 5 Play. */
   looperAction(action: number): void {
     this.log(`Looper action ${action}`);
     this.send(Uint8Array.of(0x4d, action), (p) => this.log(`Looper reply: ${frame.hex(p)}`), undefined, undefined, true);
