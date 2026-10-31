@@ -14,7 +14,7 @@ A browser-based editor for the **Mooer Prime M2** multi-effects pedal. It talks 
 - Saves the edited preset under any name to any of the 80 slots.
 - **Mixer**: level, on/off and pan of each channel (Instrument, Vocal, Bluetooth, USB), Master level, mono/stereo, L/R link, mute and 3D.
 - **Vocal FX** (compressor, EQ, reverb), **Global** settings (CabSim, global EQ, input gain), **Tuner** reference pitch and mute, **Drum** pattern and speed, **Looper** song, volume and basic controls, display brightness and auto shutdown, tempo with tap.
-- **Backup and restore** of presets over USB: export one preset or all 80 to a file, export loops as WAV and import WAV files into the loop slots (experimental), import a file, audition it on the pedal without storing it, copy a preset to another slot, and write to a slot with automatic backup of the previous content and read-back verification.
+- **Backup and restore** of presets over USB: export one preset or all 80 to a file, export loops as WAV and import WAV files into the loop slots, import a file, audition it on the pedal without storing it, copy a preset to another slot, and write to a slot with automatic backup of the previous content and read-back verification.
 - A raw view of the pedal's system state, useful to explore settings that are not mapped yet.
 
 See [TESTING.md](TESTING.md) for what has been verified on a real pedal and what is still experimental.
@@ -43,7 +43,7 @@ No pedal at hand? Open the page with `?demo` (for example `http://localhost:5173
 - Edits are sent to the pedal immediately. They live in the pedal's edit buffer until you save the preset; selecting another preset discards them.
 - Mixer, tuner, drum and other global settings are written to the pedal's system state straight away. The "System state" panel has **Restore original**, which writes back the values read when you connected.
 - Writing a whole preset (restore) replaces the slot. The app downloads a backup of the slot first and verifies the result, but keep your own backups of presets you care about.
-- Loop import is experimental and writes to the pedal's memory: try it on an empty slot first. Samples (Drive, Pre-Amp, Entire Amp, Cab) and the MIDI mapping editor are not implemented. Some settings are marked as unverified in [TESTING.md](TESTING.md).
+- Loop import replaces the content of a slot: export the loop first if you want to keep it. Samples (Drive, Pre-Amp, Entire Amp, Cab) and the MIDI mapping editor are not implemented. Some settings are marked as unverified in [TESTING.md](TESTING.md).
 
 ## Project layout
 

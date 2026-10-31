@@ -49,7 +49,7 @@ The CRC (poly `0x1021`, init 0, xorout `0xFFFF`, not reflected) covers the lengt
 | | `69` | pushed by the pedal when a loop changes (observed after a recording: `06 01 00 01 00 <ms u32> <name>`); the app refreshes the file list | observed |
 | `65 07 start(u16) end(u16)` | `66` | drum pattern names | *unverified* |
 | `63 type id(u16) index(u32)` | `64 type id(u16) status total(u32) index(u32) len(u16) data` | read frame `index` of a stored file (§7); type 6 = loop, ids 1…10 | verified |
-| `61 type id(u16) total(u32) index(u32) len(u16) data` | `62 ok` | write frame `index` of a file (§7); frame 0 = name, then 1000 bytes per frame; `ok` = 0 means rejected | *unverified* |
+| `61 type id(u16) total(u32) index(u32) len(u16) data` | `62 ok` | write frame `index` of a file (§7); frame 0 = name, then 1000 bytes per frame; `ok` = 0 means rejected | verified |
 | `91` | `92 pct` | battery percentage | verified |
 | `a9` | `aa` | serial / id string | verified |
 | `ab idx n(u16)` | `ac` | whole-preset read (USB) | verified upstream |
