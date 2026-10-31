@@ -75,11 +75,18 @@ let watching = false;
 async function watchForPedal() {
   if (watching) return;
   watching = true;
+  log("USB: waiting for the pedal to come back");
+  let reported = false;
   try {
     while (!links.usb) {
       await wait(1500);
       if (links.usb || connecting) continue;
-      const found = (await navigator.hid.getDevices()).some((d) => d.vendorId === 0x34db && d.productId === 13);
+      const known = await navigator.hid.getDevices();
+      const found = known.some((d) => d.vendorId === 0x34db && d.productId === 13);
+      if (!reported) {
+        reported = true;
+        log(`USB: ${known.length} authorised device(s) after the unplug${found ? "" : " (the pedal is not among them: click Connect USB)"}`);
+      }
       if (found) {
         log("USB: pedal found again");
         await connectUsb(false);
