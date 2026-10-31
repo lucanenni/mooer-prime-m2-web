@@ -84,7 +84,7 @@ A 99-byte payload (opcode included). Writing it back with `13` applies the setti
 | `[45]` | tuner mute: 1 = mute, 2 = no mute |
 | `[46]` | drum sync with the looper |
 | `[47]` | looper volume (0…100) |
-| `[48]` | looper song (1…8) |
+| `[48]` | looper song (1…10; 9 and 10 to be verified) |
 | `[49]` | global EQ on/off |
 | `[51]` / `[52]` | Vocal channel: off flag / level |
 | `[53]` | Vocal Comp on/off |

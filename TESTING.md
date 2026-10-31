@@ -13,6 +13,7 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 
 | Feature | What to check |
 |---|---|
+| Looper songs 9 and 10 | Select Song 9 and Song 10 in the Looper tab: the pedal should switch to them (the loop slots go up to 10) |
 | MIDI table (`b1`) | Copy the `MIDI table …` log line to decode the byte pairs |
 
 ## Unknown system-state bytes

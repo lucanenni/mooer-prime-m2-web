@@ -271,9 +271,9 @@ export function looperSection(): HTMLElement {
     }),
     volumeLabel,
   );
-  // [48]: looper song, 1...8.
+  // [48]: looper song, 1...10 (the pedal has 10 loop slots).
   const song = h("select", { onchange: (e: Event) => device.setSystemByte(48, Number((e.target as HTMLSelectElement).value)) });
-  for (let i = 1; i <= 8; i++) song.append(h("option", { value: String(i), selected: i === state[48] }, `Song ${i}`));
+  for (let i = 1; i <= Math.max(10, state[48]); i++) song.append(h("option", { value: String(i), selected: i === state[48] }, `Song ${i}`));
   // Actions are sent as `4d n` (the pedal does not reply).
   const action = (label: string, n: number, title: string, confirmText?: string) =>
     h("button", { title, onclick: () => (!confirmText || confirm(confirmText)) && device.looperAction(n) }, label);

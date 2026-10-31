@@ -38,7 +38,7 @@ export function guessLabel(i: number): string {
   if (i === 35) return "Master mute (1 = muted)";
   if (i === 36) return "Master L/R link (chain icon, 1 = linked)";
   if (i === 39) return "Master mode (0 = mono, 1 = stereo)";
-  if (i === 48) return "Looper song (1...8)";
+  if (i === 48) return "Looper song (1...10)";
   if (i === 47) return "Looper volume (0...100)";
   if (i === 40) return "level? (dB = raw/2 − 30)";
   const pans: Record<number, string> = { 89: "Vocal", 90: "Bluetooth", 91: "USB", 92: "Instrument" };
