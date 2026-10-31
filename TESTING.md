@@ -13,6 +13,7 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 
 | Feature | What to check |
 |---|---|
+| Loop import (Looper tab, "Import WAV…") | First: import a WAV you exported from the pedal into an empty slot (e.g. 10). Then a short external WAV. Check the name and length in "Read files" and that it plays |
 | MIDI table (`b1`) | Copy the `MIDI table …` log line to decode the byte pairs |
 
 ## Unknown system-state bytes
@@ -21,6 +22,5 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 
 ## To do
 
-- Looper: import of loops (writing files to the pedal). Export is implemented, see above.
 - Samples (Drive, Pre-Amp, Entire Amp, Cab): the pedal transfers them with the same file commands, other file types; not implemented.
 - MIDI mapping editor.

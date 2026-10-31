@@ -154,6 +154,7 @@ function makePedal(device: PrimeM2Device) {
             if (idx === 0) return frameOf(Array.from(encodeName("Loop A")));
             return frameOf(new Array(1000).fill(idx === 1 ? 9 : idx === 2 ? 1 : 0));
           }
+          case 0x61: return reply([0x62, 1]);
           case 0x4d: return reply([0x4e, 1]);
           case 0x65: {
             const start = p[2] | (p[3] << 8);
@@ -241,6 +242,17 @@ describe("PrimeM2Device session", () => {
     });
     expect(loop.name).toBe("Loop A");
     expect([loop.control[0], loop.audio.length, loop.audio[0]]).toEqual([9, 996, 1]); // whole 6-byte samples only
+
+    const before = requests.length;
+    await device.transfer(async () => {
+      const job = device.writeLoopFile(2, "Test", new Uint8Array(2500).fill(3));
+      await vi.advanceTimersByTimeAsync(500);
+      return job;
+    });
+    const uploaded = requests.slice(before).filter((r) => r[0] === 0x61);
+    expect(uploaded).toHaveLength(4); // name + 3 data frames
+    expect([uploaded[0][4], uploaded[0][12]]).toEqual([4, 4]); // total frames, name length
+    expect(uploaded[3][12] | (uploaded[3][13] << 8)).toBe(500);
 
     device.setTempo(140);
     await vi.advanceTimersByTimeAsync(100);

@@ -8,7 +8,7 @@
 // - Never send 0x81 to an M2: upstream saw it zero a preset's stored values.
 
 import * as frame from "./frame";
-import { fileFrameRequest, parseFileFrame, splitLoopFile } from "./loopFile";
+import { LOOP_FRAME_BYTES, fileFrameRequest, fileFrameWrite, parseFileFrame, splitLoopFile } from "./loopFile";
 import { BACKUP_READ, CloudPreset, RECOVERY_WRITE } from "./cloudPreset";
 import * as catalog from "./catalog";
 import {
@@ -529,6 +529,27 @@ export class PrimeM2Device extends EventTarget {
       offset += c.length;
     }
     return { name, ...splitLoopFile(raw) };
+  }
+
+  /** Writes loop file `id` (1...10): `data` is 1000 bytes of control data followed by the audio. Call inside `transfer`.
+   *  Every frame is acknowledged; a rejected or unanswered frame is retried twice, then the upload stops. */
+  async writeLoopFile(id: number, name: string, data: Uint8Array, onProgress?: (done: number, total: number) => void): Promise<void> {
+    const nameBytes = new TextEncoder().encode(name.slice(0, 50));
+    const total = Math.ceil(data.length / LOOP_FRAME_BYTES) + 1;
+    for (let i = 0; i < total; i++) {
+      const chunk = i === 0 ? nameBytes : data.subarray((i - 1) * LOOP_FRAME_BYTES, i * LOOP_FRAME_BYTES);
+      let accepted = false;
+      for (let attempt = 0; attempt < 3 && !accepted; attempt++) {
+        try {
+          const reply = await this.request(fileFrameWrite(id, total, i, chunk));
+          accepted = !(reply.length > 1 && reply[1] === 0);
+        } catch {
+          accepted = false;
+        }
+      }
+      if (!accepted) throw new Error(`The pedal rejected frame ${i + 1}/${total} of the loop; slot ${id} may be incomplete`);
+      if (i % 100 === 0 || i === total - 1) onProgress?.(i + 1, total);
+    }
   }
 
   /** Reads stored preset `index` (1...80) in the whole-preset format. Call inside `transfer`. */

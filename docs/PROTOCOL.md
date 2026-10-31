@@ -49,6 +49,7 @@ The CRC (poly `0x1021`, init 0, xorout `0xFFFF`, not reflected) covers the lengt
 | | `69` | pushed by the pedal when a loop changes (observed after a recording: `06 01 00 01 00 <ms u32> <name>`); the app refreshes the file list | observed |
 | `65 07 start(u16) end(u16)` | `66` | drum pattern names | *unverified* |
 | `63 type id(u16) index(u32)` | `64 type id(u16) status total(u32) index(u32) len(u16) data` | read frame `index` of a stored file (§7); type 6 = loop, ids 1…10 | verified |
+| `61 type id(u16) total(u32) index(u32) len(u16) data` | `62 ok` | write frame `index` of a file (§7); frame 0 = name, then 1000 bytes per frame; `ok` = 0 means rejected | *unverified* |
 | `91` | `92 pct` | battery percentage | verified |
 | `a9` | `aa` | serial / id string | verified |
 | `ab idx n(u16)` | `ac` | whole-preset read (USB) | verified upstream |
@@ -116,4 +117,4 @@ Presets (`22` payload): `pp | name[20] | 20 × slot | 7 bytes`, with a slot bein
 
 Loop files are file type 6, ids 1…10. Frame 0 of a file carries its name (`len` = name length); frames 1…`total`−1 carry 1000 bytes each (the last may be shorter). A frame the pedal cannot deliver comes back as a 1-byte reply. The concatenated data is 1000 bytes of control data followed by the audio: 24-bit little-endian stereo PCM (L, R interleaved) at 44.1 kHz, optionally followed by 1000 zero bytes of padding.
 
-The exported WAV holds the audio in its `data` chunk and the control data after the chunk, so that a later import can restore it. Writing a file (command `61`, same layout with `62` acknowledgements, a frame at a time) is not implemented.
+The exported WAV holds the audio in its `data` chunk and the control data after the chunk, so that a later import can restore it. Writing a file (command `61`) sends the same frames in the same order: frame 0 with the name (at most 50 bytes), then the control data and the audio in 1000-byte frames; `total` counts all frames including the name. Each frame is acknowledged with `62`; a first byte of 0 in the acknowledgement means the frame was rejected. The largest accepted file is 136 314 800 bytes. A WAV that is already 24-bit stereo 44.1 kHz is sent as it is; other WAVs are decoded and converted by the browser.

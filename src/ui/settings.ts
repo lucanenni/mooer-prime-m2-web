@@ -1,7 +1,7 @@
 import { device, log, ui, scheduleRender } from "./ctx";
 import { h } from "./dom";
 import { download } from "./backup";
-import { buildWav } from "../protocol/loopFile";
+import { LOOP_MAX_BYTES, LOOP_SAMPLE_RATE, buildWav, isPedalFormat, packPcm24, readWav, wavControl, LOOP_CONTROL_BYTES } from "../protocol/loopFile";
 import { byteSlider, byteSliderRange, onOff } from "./widgets";
 import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, addTap, eqDb, tapBpm, tunerHz } from "./format";
 
@@ -187,6 +187,62 @@ async function exportLoop(id: number, name: string) {
   }
 }
 
+let loopTarget = 0;
+
+/** Turns a WAV file into what the pedal stores: 1000 control bytes + 24-bit stereo PCM at 44.1 kHz. */
+async function loopData(file: File): Promise<Uint8Array> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const wav = readWav(bytes);
+  if (!wav) throw new Error("Not a WAV file.");
+  if (wav.audioFormat === 1 && wav.bits === 24 && isPedalFormat(wav)) {
+    // Already in the pedal's format: send the samples untouched, with the control data that follows them.
+    const data = new Uint8Array(LOOP_CONTROL_BYTES + wav.dataSize);
+    data.set(wavControl(bytes, wav), 0);
+    data.set(bytes.subarray(wav.dataOffset, wav.dataOffset + wav.dataSize), LOOP_CONTROL_BYTES);
+    return data;
+  }
+  const context = new AudioContext({ sampleRate: LOOP_SAMPLE_RATE });
+  try {
+    const audio = await context.decodeAudioData(bytes.slice().buffer);
+    const pcm = packPcm24(audio.getChannelData(0), audio.numberOfChannels > 1 ? audio.getChannelData(1) : undefined);
+    const data = new Uint8Array(LOOP_CONTROL_BYTES + pcm.length);
+    data.set(pcm, LOOP_CONTROL_BYTES);
+    return data;
+  } catch {
+    throw new Error("This WAV could not be decoded (compressed formats such as ADPCM are not supported).");
+  } finally {
+    void context.close();
+  }
+}
+
+/** Uploads a WAV to loop slot `id` (1...10), replacing what is there. */
+async function importLoop(file: File, id: number) {
+  const current = device.looperFiles[id - 1];
+  if (current && !current.empty && !confirm(`Replace loop ${id} “${current.name}” with “${file.name}”? The current loop is lost; export it first if you want to keep it.`)) return;
+  loopBusy = true;
+  loopMsg = "Preparing…";
+  scheduleRender();
+  try {
+    if (file.size > LOOP_MAX_BYTES) throw new Error("The file is too large for the pedal.");
+    const data = await loopData(file);
+    if (data.length > LOOP_MAX_BYTES) throw new Error("The loop is too long for the pedal.");
+    const name = file.name.replace(/\.wav$/i, "").replace(/[^\x20-\x7e]+/g, "_").slice(0, 20);
+    await device.transfer(async () => {
+      await device.writeLoopFile(id, name, data, (done, total) => {
+        loopMsg = `Writing loop ${id}: ${Math.round((done / total) * 100)}%`;
+        scheduleRender();
+      });
+    });
+    loopMsg = `Imported “${name}” (${((data.length - LOOP_CONTROL_BYTES) / 6 / LOOP_SAMPLE_RATE).toFixed(1)} s) into loop ${id}.`;
+    device.readLooperFiles();
+  } catch (e) {
+    loopMsg = `Error: ${e instanceof Error ? e.message : e}`;
+  } finally {
+    loopBusy = false;
+    scheduleRender();
+  }
+}
+
 export function looperSection(): HTMLElement {
   const state = device.systemStateBytes;
   const box = h("section", { class: "mixer" }, h("strong", {}, "Looper"));
@@ -245,6 +301,7 @@ export function looperSection(): HTMLElement {
           )
         : h("span", { class: "hint" }, "Not read yet"),
     ),
+    importRow(),
     device.looperFiles.some((f) => !f.empty)
       ? h(
           "div",
@@ -299,4 +356,34 @@ export function tunerSection(): HTMLElement {
     ),
   );
   return box;
+}
+
+function importRow(): HTMLElement {
+  if (!loopTarget) loopTarget = Math.max(1, device.looperFiles.findIndex((f) => f.empty) + 1 || 1);
+  const slot = h("select", { ariaLabel: "Import into loop slot", onchange: (e: Event) => (loopTarget = Number((e.target as HTMLSelectElement).value)) });
+  for (let i = 1; i <= 10; i++) {
+    const f = device.looperFiles[i - 1];
+    slot.append(h("option", { value: String(i), selected: i === loopTarget }, `${i}${f ? (f.empty ? " (empty)" : ` ${f.name}`) : ""}`));
+  }
+  const input = h("input", {
+    type: "file",
+    accept: ".wav,audio/wav",
+    hidden: true,
+    onchange: (e: Event) => {
+      const el = e.target as HTMLInputElement;
+      if (el.files?.[0]) void importLoop(el.files[0], loopTarget);
+      el.value = "";
+    },
+  });
+  const disabled = loopBusy || device.isTransferring || device.link !== "USB";
+  return h(
+    "div",
+    { class: "backup" },
+    h("strong", {}, "Import"),
+    h("span", {}, "WAV into slot"),
+    slot,
+    h("button", { disabled, title: "Upload a WAV into this loop slot (USB only). 24-bit stereo 44.1 kHz WAVs are sent untouched.", onclick: () => input.click() }, "Import WAV…"),
+    input,
+    device.link !== "USB" ? h("span", { class: "hint" }, "USB only") : null,
+  );
 }

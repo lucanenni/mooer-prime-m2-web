@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as catalog from "../src/protocol/catalog";
 import { encodeName, parseLooperFiles, parseNameList } from "../src/protocol/models";
-import { LOOP_CONTROL_BYTES, buildWav, parseFileFrame, splitLoopFile } from "../src/protocol/loopFile";
+import { LOOP_CONTROL_BYTES, buildWav, fileFrameWrite, isPedalFormat, packPcm24, parseFileFrame, readWav, splitLoopFile, wavControl } from "../src/protocol/loopFile";
 import { INPUT_GAIN, SLEEP_OPTIONS, addTap, eqDb, levelDb, panText, tapBpm, tunerHz } from "../src/ui/format";
 
 describe("value formatting", () => {
@@ -113,5 +113,28 @@ describe("loop files", () => {
     expect(new DataView(wav.buffer).getUint32(40, true)).toBe(1200);
     expect(wav).toHaveLength(44 + 1200 + LOOP_CONTROL_BYTES);
     expect(wav[44 + 1200]).toBe(7);
+  });
+
+  it("reads back a WAV built for the pedal, including its control data", () => {
+    const audio = new Uint8Array(600).map((_, i) => i % 251);
+    const control = new Uint8Array(LOOP_CONTROL_BYTES).fill(5);
+    const bytes = buildWav(audio, control);
+    const wav = readWav(bytes)!;
+    expect(isPedalFormat(wav)).toBe(true);
+    expect([wav.dataOffset, wav.dataSize]).toEqual([44, 600]);
+    expect(wavControl(bytes, wav)).toEqual(control);
+    expect(readWav(Uint8Array.of(1, 2, 3))).toBeNull();
+  });
+
+  it("packs float samples into 24-bit stereo", () => {
+    const pcm = packPcm24(Float32Array.of(1, -1, 0), Float32Array.of(0, 0.5, -0.5));
+    expect(Array.from(pcm.subarray(0, 6))).toEqual([0xff, 0xff, 0x7f, 0, 0, 0]);
+    expect(Array.from(pcm.subarray(6, 9))).toEqual([0, 0, 0x80]);
+    expect(pcm).toHaveLength(18);
+  });
+
+  it("builds upload frames", () => {
+    const frame = fileFrameWrite(3, 5, 2, Uint8Array.of(9, 8));
+    expect(Array.from(frame)).toEqual([0x61, 6, 3, 0, 5, 0, 0, 0, 2, 0, 0, 0, 2, 0, 9, 8]);
   });
 });
