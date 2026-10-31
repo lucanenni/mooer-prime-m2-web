@@ -12,7 +12,7 @@ import { LOOP_FRAME_BYTES, fileFrameRequest, fileFrameWrite, parseFileFrame, spl
 import { BACKUP_READ, CloudPreset, RECOVERY_WRITE } from "./cloudPreset";
 import * as catalog from "./catalog";
 import {
-  NAME_LENGTH, type PrimeModule, type PrimePreset, decodeName, encodeName, encodeModule, parseModule, parseLooperFiles, parseNameList, parsePreset, slotLabel, type LooperFile,
+  NAME_LENGTH, type MidiAssignment, type PrimeModule, type PrimePreset, decodeName, encodeName, encodeModule, parseModule, parseLooperFiles, parseMidiTable, parseNameList, parsePreset, slotLabel, type LooperFile,
 } from "./models";
 
 export type LinkKind = "USB" | "Bluetooth";
@@ -47,6 +47,8 @@ export class PrimeM2Device extends EventTarget {
   serial?: string;
   battery?: number;
   tempo?: number;
+  /** MIDI assignments, from `b1`; empty until read. */
+  midiTable: MidiAssignment[] = [];
   /** Whether the drum machine was started from here; the pedal's own state is not read. */
   drumPlaying = false;
   presetNames = new Map<number, string>();
@@ -188,6 +190,7 @@ export class PrimeM2Device extends EventTarget {
     this.presetNames = new Map();
     this.drumNames = [];
     this.looperFiles = [];
+    this.midiTable = [];
     this.activePresetIndex = undefined;
     this.preset = undefined;
   }
@@ -210,7 +213,11 @@ export class PrimeM2Device extends EventTarget {
 
   /** `b1` -> `b2`: the MIDI mapping table. Only logged: the entry layout is not decoded yet. */
   readMidiTable(): void {
-    this.send(Uint8Array.of(0xb1), (p) => this.log(`MIDI table (${p.length} bytes): ${frame.hex(p)}`));
+    this.send(Uint8Array.of(0xb1), (p) => {
+      this.log(`MIDI table (${p.length} bytes): ${frame.hex(p)}`);
+      const table = parseMidiTable(p);
+      if (table) this.midiTable = table;
+    });
   }
 
   /** `4d action`: looper button, 1 Rec, 2 Pause, 3 Undo, 4 Clear, 5 Play. */

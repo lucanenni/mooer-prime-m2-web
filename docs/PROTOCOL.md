@@ -54,7 +54,7 @@ The CRC (poly `0x1021`, init 0, xorout `0xFFFF`, not reflected) covers the lengt
 | `a9` | `aa` | serial / id string | verified |
 | `ab idx n(u16)` | `ac` | whole-preset read (USB) | verified upstream |
 | `ad idx n(u16) len(u16) data` | `ae n(u16) status` | whole-preset write (USB); `idx` 0 = audition slot | verified upstream |
-| `b1` | `b2` | MIDI table (layout not decoded) | *unverified* |
+| `b1` | `b2` | MIDI table: 20 `flag, value` pairs (flag 1 = assigned, value 255 = none) for Page Up, Page Down, Preset A–D, Delay Tap, Tuner, Drum Play/Stop, Drum Up, Drum Down, Drum BPM Tap, Drum Volume, Looper Rec/Play, Looper Undo/Redo, Looper Stop, Looper Delete, Looper Volume, Looper Song Up, Looper Song Down | layout verified; meaning of the values to check |
 
 Presets are numbered 1…80 (bank × 4 + slot + 1; bank 0A = 1, 0B = 2 …).
 

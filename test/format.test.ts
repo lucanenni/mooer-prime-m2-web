@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as catalog from "../src/protocol/catalog";
 import { encodeName, parseLooperFiles, parseNameList } from "../src/protocol/models";
 import { LOOP_CONTROL_BYTES, buildWav, fileFrameWrite, isPedalFormat, packPcm24, parseFileFrame, readWav, splitLoopFile, wavControl } from "../src/protocol/loopFile";
+import { MIDI_FUNCTIONS, parseMidiTable } from "../src/protocol/models";
 import { INPUT_GAIN, SLEEP_OPTIONS, addTap, eqDb, levelDb, panText, tapBpm, tunerHz } from "../src/ui/format";
 
 describe("value formatting", () => {
@@ -136,5 +137,17 @@ describe("loop files", () => {
   it("builds upload frames", () => {
     const frame = fileFrameWrite(3, 5, 2, Uint8Array.of(9, 8));
     expect(Array.from(frame)).toEqual([0x61, 6, 3, 0, 5, 0, 0, 0, 2, 0, 0, 0, 2, 0, 9, 8]);
+  });
+});
+
+describe("MIDI table", () => {
+  it("decodes a reply from a real pedal", () => {
+    const hex = "b2 01 1a 01 19 01 0a 01 16 01 0b 01 18 00 ff 00 ff 01 0e 00 ff 00 ff 00 ff 00 ff 00 ff 00 ff 00 ff 00 ff 00 ff 00 ff 00 ff";
+    const table = parseMidiTable(Uint8Array.from(hex.split(" ").map((h) => parseInt(h, 16))))!;
+    expect(table).toHaveLength(MIDI_FUNCTIONS.length);
+    expect(table.slice(0, 6).map((a) => a.value)).toEqual([26, 25, 10, 22, 11, 24]);
+    expect(table.map((a) => a.assigned).filter(Boolean)).toHaveLength(7);
+    expect(table[8]).toEqual({ assigned: true, value: 14 });
+    expect(parseMidiTable(Uint8Array.of(0xb2, 1, 2))).toBeNull();
   });
 });

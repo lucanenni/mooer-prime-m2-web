@@ -13,7 +13,7 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 
 | Feature | What to check |
 |---|---|
-| MIDI table (`b1`) | Copy the `MIDI table …` log line to decode the byte pairs |
+| MIDI assignments (`b1`, "Read assignments" in Settings) | Compare each function's value with what the official app shows for that function (channel and CC number) |
 
 ## Unknown system-state bytes
 
@@ -22,4 +22,4 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 ## To do
 
 - Samples (Drive, Pre-Amp, Entire Amp, Cab): the pedal transfers them with the same file commands, other file types; not implemented.
-- MIDI mapping editor.
+- MIDI mapping editor (learning, saving and removing assignments): needs the learn / save / remove commands.

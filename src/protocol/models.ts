@@ -133,3 +133,22 @@ export function parseLooperFiles(payload: Uint8Array): LooperFile[] | null {
   }
   return out;
 }
+
+/** The pedal's MIDI-controllable functions, in the order of the table of command `b1`. */
+export const MIDI_FUNCTIONS = [
+  "Page Up", "Page Down", "Preset A", "Preset B", "Preset C", "Preset D", "Delay Tap", "Tuner",
+  "Drum Play / Stop", "Drum Up", "Drum Down", "Drum BPM Tap", "Drum Volume",
+  "Looper Rec / Play", "Looper Undo / Redo", "Looper Stop", "Looper Delete", "Looper Volume", "Looper Song Up", "Looper Song Down",
+] as const;
+
+export interface MidiAssignment {
+  assigned: boolean;
+  /** Learned MIDI value (the controller number the app shows as "CC n"); 255 when unassigned. */
+  value: number;
+}
+
+/** Reply `b2` of `b1`: one `flag, value` pair per function (flag 1 = assigned, value 255 = none). */
+export function parseMidiTable(payload: Uint8Array): MidiAssignment[] | null {
+  if (payload.length !== 1 + MIDI_FUNCTIONS.length * 2 || payload[0] !== 0xb2) return null;
+  return MIDI_FUNCTIONS.map((_, i) => ({ assigned: payload[1 + i * 2] === 1, value: payload[2 + i * 2] }));
+}
