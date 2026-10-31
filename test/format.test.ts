@@ -76,8 +76,8 @@ describe("list parsers", () => {
   });
 
   it("parses looper file records with or without a small header", () => {
-    const rec = (empty: number, ms: number, name: string) => [empty, 0, ms & 0xff, ms >> 8, 0, 0, ...encodeName(name)];
-    const body = [...rec(0, 1500, "Loop"), ...rec(1, 0, "")];
+    const rec = (used: number, ms: number, name: string) => [used, 0, ms & 0xff, ms >> 8, 0, 0, ...encodeName(name)];
+    const body = [...rec(1, 1500, "Loop"), ...rec(0, 0, "")];
     const plain = parseLooperFiles(Uint8Array.from([0x54, ...body]))!;
     expect(plain.map((f) => [f.empty, f.ms, f.name])).toEqual([[false, 1500, "Loop"], [true, 0, ""]]);
     const withHeader = parseLooperFiles(Uint8Array.from([0x54, 1, 10, ...body]))!;

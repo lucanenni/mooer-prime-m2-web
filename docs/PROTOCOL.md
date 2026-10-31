@@ -45,7 +45,8 @@ The CRC (poly `0x1021`, init 0, xorout `0xFFFF`, not reflected) covers the lengt
 | `33 pp` | `34 bpm(u16)` | tempo of preset `pp` | verified |
 | `35 bpm(u16 LE)` | `36` | set the tempo of the active preset (40…260) | *unverified* |
 | `4d n` | | looper button, `n` = 1…5 (guess: Rec, Pause, Undo, Clear, Play = 1, 2, 3, 4, 5) | *unverified* |
-| `53 01 0a` | `54` | looper file list: records of 26 bytes (empty flag, sync flag, time in ms u32, name[20]) | *unverified* |
+| `53 01 0a` | `54` | looper file list: records of 26 bytes (recorded flag: 1 = has a loop, sync flag, time in ms u32, name[20]) | verified |
+| | `69` | pushed by the pedal when a loop changes (observed after a recording: `06 01 00 01 00 <ms u32> <name>`); the app refreshes the file list | observed |
 | `65 07 start(u16) end(u16)` | `66` | drum pattern names | *unverified* |
 | `91` | `92 pct` | battery percentage | verified |
 | `a9` | `aa` | serial / id string | verified |

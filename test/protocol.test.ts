@@ -146,8 +146,8 @@ function makePedal(device: PrimeM2Device) {
           case 0x2d: return reply([0x2e, p[1], 1]);
           case 0x35: return reply([0x36, 1]);
           case 0x53: {
-            const rec = (empty: number, ms: number, name: string) => [empty, 1, ms & 0xff, (ms >> 8) & 0xff, 0, 0, ...encodeName(name)];
-            return reply([0x54, ...rec(0, 3000, "Loop A"), ...rec(1, 0, "")]);
+            const rec = (used: number, ms: number, name: string) => [used, 1, ms & 0xff, (ms >> 8) & 0xff, 0, 0, ...encodeName(name)];
+            return reply([0x54, ...rec(1, 3000, "Loop A"), ...rec(0, 0, "")]);
           }
           case 0x4d: return reply([0x4e, 1]);
           case 0x65: {

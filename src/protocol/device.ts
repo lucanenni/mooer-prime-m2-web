@@ -631,6 +631,10 @@ export class PrimeM2Device extends EventTarget {
       if (this.activePresetIndex !== undefined) this.loadPreset(this.activePresetIndex);
     } else if (opcode === 0x34) {
       this.applyTempo(payload);
+    } else if (opcode === 0x69) {
+      // Looper update pushed by the pedal (e.g. a recording finished): refresh the file list if it was read before.
+      this.log(`Looper update 0x69: ${frame.hex(payload.subarray(1))}`);
+      if (this.looperFiles.length) this.readLooperFiles();
     } else if (opcode !== 0x9e) {
       this.log(`Unsolicited 0x${opcode.toString(16)}: ${frame.hex(payload.subarray(1))}`);
     }

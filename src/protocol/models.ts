@@ -115,7 +115,7 @@ export interface LooperFile {
 
 const LOOPER_RECORD = 26;
 
-/** Reply `54 ...` of `53 begin end`: records of 26 bytes = empty flag, sync flag, time in ms (u32), name[20].
+/** Reply `54 ...` of `53 begin end`: records of 26 bytes = recorded flag (1 = has a loop), sync flag, time in ms (u32), name[20].
  *  The header size is derived from the payload length. */
 export function parseLooperFiles(payload: Uint8Array): LooperFile[] | null {
   if (payload.length < 1 || payload[0] !== 0x54) return null;
@@ -125,7 +125,7 @@ export function parseLooperFiles(payload: Uint8Array): LooperFile[] | null {
   const out: LooperFile[] = [];
   for (let off = skip; off + LOOPER_RECORD <= body.length; off += LOOPER_RECORD) {
     out.push({
-      empty: body[off] !== 0,
+      empty: body[off] === 0,
       sync: body[off + 1] !== 0,
       ms: (body[off + 2] | (body[off + 3] << 8) | (body[off + 4] << 16) | (body[off + 5] << 24)) >>> 0,
       name: decodeName(body.subarray(off + 6, off + LOOPER_RECORD)),
