@@ -37,10 +37,23 @@ async function attempt(what: "USB" | "Bluetooth", job: () => Promise<void>) {
   }
 }
 
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** An automatic attempt right after a plug-in often fails because the system has not released the device yet:
+ *  retry a few times before showing an error. */
 export const connectUsb = (interactive: boolean) =>
   attempt("USB", async () => {
-    const link = await WebHidLink.connect(device, log, interactive);
-    if (link) links.usb = link;
+    for (let tries = interactive ? 1 : 6; ; tries--) {
+      try {
+        const link = await WebHidLink.connect(device, log, interactive);
+        if (link) links.usb = link;
+        return;
+      } catch (e) {
+        if (tries <= 1 || links.usb) throw e;
+        log(`USB: ${e}; retrying`);
+        await wait(700);
+      }
+    }
   });
 
 export const connectBle = () =>
