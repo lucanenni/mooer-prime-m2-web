@@ -1,5 +1,7 @@
 import { device, log, ui, scheduleRender } from "./ctx";
 import { h } from "./dom";
+import { download } from "./backup";
+import { buildWav } from "../protocol/loopFile";
 import { byteSlider, byteSliderRange, onOff } from "./widgets";
 import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, addTap, eqDb, tapBpm, tunerHz } from "./format";
 
@@ -159,6 +161,32 @@ export function globalSection(): HTMLElement {
 // ---- Looper -------------------------------------------------------------------
 
 /** [47] looper volume, 0...100. */
+let loopMsg = "";
+let loopBusy = false;
+
+/** Downloads loop file `id` (1...10) as a WAV; the control data rides after the audio chunk. */
+async function exportLoop(id: number, name: string) {
+  loopBusy = true;
+  loopMsg = `Reading loop ${id}…`;
+  scheduleRender();
+  try {
+    await device.transfer(async () => {
+      const file = await device.readLoopFile(id, (done, total) => {
+        loopMsg = `Reading loop ${id}: ${Math.round((done / total) * 100)}%`;
+        scheduleRender();
+      });
+      const base = (name || file.name || `loop-${id}`).replace(/[^\w.-]+/g, "_");
+      download(`${base}.wav`, buildWav(file.audio, file.control), "audio/wav");
+      loopMsg = `Exported loop ${id} “${file.name}” (${(file.audio.length / 6 / 44100).toFixed(1)} s).`;
+    });
+  } catch (e) {
+    loopMsg = `Error: ${e instanceof Error ? e.message : e}`;
+  } finally {
+    loopBusy = false;
+    scheduleRender();
+  }
+}
+
 export function looperSection(): HTMLElement {
   const state = device.systemStateBytes;
   const box = h("section", { class: "mixer" }, h("strong", {}, "Looper"));
@@ -217,6 +245,17 @@ export function looperSection(): HTMLElement {
           )
         : h("span", { class: "hint" }, "Not read yet"),
     ),
+    device.looperFiles.some((f) => !f.empty)
+      ? h(
+          "div",
+          { class: "backup" },
+          h("strong", {}, "Export"),
+          ...device.looperFiles.flatMap((f, i) =>
+            f.empty ? [] : [h("button", { disabled: loopBusy || device.isTransferring || device.link !== "USB", title: "Download this loop as a WAV (USB only)", onclick: () => void exportLoop(i + 1, f.name) }, `${i + 1}: ${f.name || "loop"}`)],
+          ),
+          loopMsg ? h("span", { class: loopMsg.startsWith("Error") ? "notice-inline" : "hint" }, loopMsg) : null,
+        )
+      : h("span"),
   );
   return box;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as catalog from "../src/protocol/catalog";
 import { encodeName, parseLooperFiles, parseNameList } from "../src/protocol/models";
+import { LOOP_CONTROL_BYTES, buildWav, parseFileFrame, splitLoopFile } from "../src/protocol/loopFile";
 import { INPUT_GAIN, SLEEP_OPTIONS, addTap, eqDb, levelDb, panText, tapBpm, tunerHz } from "../src/ui/format";
 
 describe("value formatting", () => {
@@ -89,5 +90,28 @@ describe("list parsers", () => {
     const withHeader = parseLooperFiles(Uint8Array.from([0x54, 1, 10, ...body]))!;
     expect(withHeader).toHaveLength(2);
     expect(parseLooperFiles(Uint8Array.of(0x54, 1, 2, 3))).toBeNull();
+  });
+});
+
+describe("loop files", () => {
+  it("parses file frames and rejects error replies", () => {
+    const data = [1, 2, 3];
+    const reply = Uint8Array.from([0x64, 6, 2, 0, 1, 5, 0, 0, 0, 3, 0, 0, 0, data.length, 0, ...data]);
+    expect(parseFileFrame(reply)).toEqual({ status: 1, total: 5, index: 3, data: Uint8Array.from(data) });
+    expect(parseFileFrame(Uint8Array.of(0x64, 0))).toBeNull();
+  });
+
+  it("splits control data and audio and builds a WAV with the control after the data chunk", () => {
+    const control = new Uint8Array(LOOP_CONTROL_BYTES).fill(7);
+    const audio = new Uint8Array(1200).fill(1);
+    const raw = Uint8Array.from([...control, ...audio, ...new Uint8Array(LOOP_CONTROL_BYTES)]);
+    const split = splitLoopFile(raw);
+    expect(split.control).toEqual(control);
+    expect(split.audio).toHaveLength(1200);
+    const wav = buildWav(split.audio, split.control);
+    expect(String.fromCharCode(...wav.subarray(0, 4))).toBe("RIFF");
+    expect(new DataView(wav.buffer).getUint32(40, true)).toBe(1200);
+    expect(wav).toHaveLength(44 + 1200 + LOOP_CONTROL_BYTES);
+    expect(wav[44 + 1200]).toBe(7);
   });
 });

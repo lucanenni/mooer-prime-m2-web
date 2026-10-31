@@ -14,7 +14,7 @@ A browser-based editor for the **Mooer Prime M2** multi-effects pedal. It talks 
 - Saves the edited preset under any name to any of the 80 slots.
 - **Mixer**: level, on/off and pan of each channel (Instrument, Vocal, Bluetooth, USB), Master level, mono/stereo, L/R link, mute and 3D.
 - **Vocal FX** (compressor, EQ, reverb), **Global** settings (CabSim, global EQ, input gain), **Tuner** reference pitch and mute, **Drum** pattern and speed, **Looper** song, volume and basic controls, display brightness and auto shutdown, tempo with tap.
-- **Backup and restore** of presets over USB: export one preset or all 80 to a file, import a file, audition it on the pedal without storing it, copy a preset to another slot, and write to a slot with automatic backup of the previous content and read-back verification.
+- **Backup and restore** of presets over USB: export one preset or all 80 to a file, export loops as WAV, import a file, audition it on the pedal without storing it, copy a preset to another slot, and write to a slot with automatic backup of the previous content and read-back verification.
 - A raw view of the pedal's system state, useful to explore settings that are not mapped yet.
 
 See [TESTING.md](TESTING.md) for what has been verified on a real pedal and what is still experimental.

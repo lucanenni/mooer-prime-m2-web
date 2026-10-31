@@ -13,6 +13,7 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 
 | Feature | What to check |
 |---|---|
+| Loop export (Looper tab, "Export" buttons) | Record a loop, press "Read files", export it and play the WAV: the length and the audio should match (stereo, 24 bit, 44.1 kHz) |
 | MIDI table (`b1`) | Copy the `MIDI table …` log line to decode the byte pairs |
 
 ## Unknown system-state bytes
@@ -21,5 +22,6 @@ This project talks to a real Mooer Prime M2. Not everything has been checked on 
 
 ## To do
 
-- Looper: upload / download of loops. The transfer protocol and the audio format are not known yet; nothing is written to the pedal for this.
+- Looper: import of loops (writing files to the pedal). Export is implemented, see above.
+- Samples (Drive, Pre-Amp, Entire Amp, Cab): the pedal transfers them with the same file commands, other file types; not implemented.
 - MIDI mapping editor.

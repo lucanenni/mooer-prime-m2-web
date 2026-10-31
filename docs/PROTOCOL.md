@@ -48,6 +48,7 @@ The CRC (poly `0x1021`, init 0, xorout `0xFFFF`, not reflected) covers the lengt
 | `53 01 0a` | `54` | looper file list: records of 26 bytes (recorded flag: 1 = has a loop, sync flag, time in ms u32, name[20]) | verified |
 | | `69` | pushed by the pedal when a loop changes (observed after a recording: `06 01 00 01 00 <ms u32> <name>`); the app refreshes the file list | observed |
 | `65 07 start(u16) end(u16)` | `66` | drum pattern names | *unverified* |
+| `63 type id(u16) index(u32)` | `64 type id(u16) status total(u32) index(u32) len(u16) data` | read frame `index` of a stored file (§7); type 6 = loop, ids 1…10 | *unverified* |
 | `91` | `92 pct` | battery percentage | verified |
 | `a9` | `aa` | serial / id string | verified |
 | `ab idx n(u16)` | `ac` | whole-preset read (USB) | verified upstream |
@@ -110,3 +111,9 @@ Presets (`22` payload): `pp | name[20] | 20 × slot | 7 bytes`, with a slot bein
 ## 6. Whole-preset format (USB)
 
 1198 bytes in three frames (322 + 512 + 364): the name at 392, the BPM at 390, 20 module records of 36 bytes from 412, and a CRC-16/GSM over bytes 322…1195 stored little-endian at 1196. Writing to `idx` 0 plays the preset without storing it; `ad ff 00 00 00 00` ends the audition. See `src/protocol/cloudPreset.ts`.
+
+## 7. Loop files (USB)
+
+Loop files are file type 6, ids 1…10. Frame 0 of a file carries its name (`len` = name length); frames 1…`total`−1 carry 1000 bytes each (the last may be shorter). A frame the pedal cannot deliver comes back as a 1-byte reply. The concatenated data is 1000 bytes of control data followed by the audio: 24-bit little-endian stereo PCM (L, R interleaved) at 44.1 kHz, optionally followed by 1000 zero bytes of padding.
+
+The exported WAV holds the audio in its `data` chunk and the control data after the chunk, so that a later import can restore it. Writing a file (command `61`, same layout with `62` acknowledgements, a frame at a time) is not implemented.

@@ -8,6 +8,7 @@
 // - Never send 0x81 to an M2: upstream saw it zero a preset's stored values.
 
 import * as frame from "./frame";
+import { fileFrameRequest, parseFileFrame, splitLoopFile } from "./loopFile";
 import { BACKUP_READ, CloudPreset, RECOVERY_WRITE } from "./cloudPreset";
 import * as catalog from "./catalog";
 import {
@@ -34,7 +35,7 @@ interface Request {
   optionalReply?: boolean;
 }
 
-const RETRYABLE_READS = new Set([0x01, 0x11, 0x21, 0x23, 0x29, 0x33, 0x91, 0xa9]);
+const RETRYABLE_READS = new Set([0x01, 0x11, 0x21, 0x23, 0x29, 0x33, 0x63, 0x91, 0xa9]);
 const replyOf = (r: Request) => (r.payload[0] + 1) & 0xff;
 const isBackground = (r: Request) => r.key === "state" || r.key === "battery";
 
@@ -507,6 +508,27 @@ export class PrimeM2Device extends EventTarget {
       this.changed();
       this.pump();
     }
+  }
+
+  /** Reads loop file `id` (1...10): its name and audio. Call inside `transfer`; a 30 s loop is about 8000 frames. */
+  async readLoopFile(id: number, onProgress?: (done: number, total: number) => void): Promise<{ name: string; control: Uint8Array; audio: Uint8Array }> {
+    const head = parseFileFrame(await this.request(fileFrameRequest(id, 0)));
+    if (!head || head.status === 0 || head.total === 0) throw new Error(`Loop file ${id} is empty or unreadable`);
+    const name = new TextDecoder().decode(head.data.subarray(0, head.data.indexOf(0) < 0 ? head.data.length : head.data.indexOf(0)));
+    const chunks: Uint8Array[] = [];
+    for (let n = 1; n < head.total; n++) {
+      const frame = parseFileFrame(await this.request(fileFrameRequest(id, n)));
+      if (!frame) throw new Error(`Loop frame ${n}/${head.total - 1} was not delivered`);
+      chunks.push(frame.data);
+      if (n % 100 === 0 || n === head.total - 1) onProgress?.(n, head.total - 1);
+    }
+    const raw = new Uint8Array(chunks.reduce((sum, c) => sum + c.length, 0));
+    let offset = 0;
+    for (const c of chunks) {
+      raw.set(c, offset);
+      offset += c.length;
+    }
+    return { name, ...splitLoopFile(raw) };
   }
 
   /** Reads stored preset `index` (1...80) in the whole-preset format. Call inside `transfer`. */
