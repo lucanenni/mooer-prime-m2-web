@@ -1,0 +1,440 @@
+import { device, log, ui, scheduleRender } from "./ctx";
+import { h } from "./dom";
+import { download } from "./backup";
+import { LOOP_MAX_BYTES, LOOP_SAMPLE_RATE, buildWav, isPedalFormat, packPcm24, readWav, wavControl, LOOP_CONTROL_BYTES } from "../protocol/loopFile";
+import { byteSlider, byteSliderRange, onOff } from "./widgets";
+import { INPUT_GAIN, RGB_COLORS, SLEEP_OPTIONS, addTap, eqDb, tapBpm, tunerHz } from "./format";
+
+// ---- Drum machine and tempo --------------------------------------------------
+
+let taps: number[] = [];
+
+export function tapTempo() {
+  taps = addTap(taps, Date.now());
+  const bpm = tapBpm(taps);
+  if (bpm === undefined) return log(`Tap ${taps.length}: need one more tap`);
+  log(`Tap ${taps.length}: mean ${Math.round(60000 / bpm)} ms -> ${Math.round(bpm)} BPM`);
+  device.setTempo(bpm);
+}
+
+/** [41..42] speed = the tempo, u16 LE, 40...260; [43] pattern (0 = first); [46] sync with the looper (1 = on assumed). */
+export function drumSection(): HTMLElement {
+  const state = device.systemStateBytes;
+  const box = h("section", { class: "mixer" }, h("strong", {}, "Drum"));
+  if (!state) return box;
+  const speed = state[41] | (state[42] << 8);
+  const speedLabel = h("span", { class: "val" }, `${speed} BPM`);
+  const pattern = h("select", { onchange: (e: Event) => device.setSystemByte(43, Number((e.target as HTMLSelectElement).value)) });
+  const count = Math.max(60, device.drumNames.length, state[43] + 1);
+  for (let i = 0; i < count; i++) pattern.append(h("option", { value: String(i), selected: i === state[43] }, device.drumNames[i] || `Pattern ${i + 1}`));
+  box.append(
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Pattern"),
+      pattern,
+      h("button", { class: device.drumPlaying ? "primary" : "", title: "Start or stop the drum machine", onclick: () => device.drumPlay(!device.drumPlaying) }, device.drumPlaying ? "⏸ Pause" : "▶ Play"),
+    ),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Tempo"),
+      h("input", {
+        type: "range",
+        min: "40",
+        max: "260",
+        value: String(Math.max(40, Math.min(260, speed))),
+        oninput: (e: Event) => {
+          const v = Number((e.target as HTMLInputElement).value);
+          device.setTempo(v);
+          speedLabel.textContent = `${v} BPM`;
+        },
+        onpointerdown: () => (ui.dragging = true),
+        onpointerup: () => {
+          ui.dragging = false;
+          scheduleRender();
+        },
+      }),
+      speedLabel,
+      // Fires on press: the page re-renders after each write, which would swallow the click of a fast tap.
+      h("button", { onpointerdown: tapTempo, onclick: (e: MouseEvent) => e.detail === 0 && tapTempo() }, "Tap"),
+    ),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Looper"),
+      h("label", { class: "on" }, h("input", {
+        type: "checkbox",
+        checked: state[46] === 1,
+        onchange: (e: Event) => device.setSystemByte(46, (e.target as HTMLInputElement).checked ? 1 : 0),
+      }), " sync drum with the looper"),
+    ),
+    h("span", { class: "hint" }, "The tempo is the drum speed."),
+  );
+  return box;
+}
+
+// ---- Global settings ---------------------------------------------------------
+
+/** Input gain steps ([7], 0...21): off, -60, -45, -35, -30, -25, -20, -10, -5, 0, then +0.5 dB steps up to +6. */
+
+
+
+
+function colored<T extends HTMLElement>(el: T, color: string): T {
+  el.style.background = color;
+  return el;
+}
+
+/** [75] display brightness, 5...55. */
+export function displaySection(): HTMLElement {
+  const state = device.systemStateBytes;
+  const box = h("section", { class: "mixer" }, h("strong", {}, "Display & power"));
+  if (!state) return box;
+  const sleep = h("select", { onchange: (e: Event) => device.setSystemByte(8, Number((e.target as HTMLSelectElement).value)) });
+  const options = SLEEP_OPTIONS.includes(state[8]) ? SLEEP_OPTIONS : [...SLEEP_OPTIONS, state[8]];
+  for (const v of options) sleep.append(h("option", { value: String(v), selected: v === state[8] }, v === 255 ? "Never" : `${v} min`));
+  box.append(
+    h("div", { class: "param" }, h("label", {}, "Auto shutdown"), sleep),
+    byteSliderRange("Brightness", 75, 5, 55, String),
+    // [76]: 0 = off, 1 = footswitch A sends Page Down, B sends Page Up.
+    h("div", { class: "param" }, h("label", {}, "Footswitch page"), onOff("A = Page Down, B = Page Up (off = disabled)", 76, 1, 0)),
+    // RGB: [94] is the dynamic-mode switch. The app also has brightness ([96]), colour ([97]) and static speed ([95]);
+    h("div", { class: "param" }, h("label", {}, "RGB dynamic"), onOff("on", 94, 1, 0)),
+    h("div", { class: "param" }, h("label", {}, "RGB brightness"), onOff("bright (off = soft)", 96, 1, 0)),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "RGB colour"),
+      h("span", { class: "swatches" }, ...RGB_COLORS.map((color, c) =>
+        colored(
+          h("button", {
+            class: "swatch" + (state[97] === c + 1 ? " active" : ""),
+            title: `Colour ${c + 1}`,
+            ariaLabel: `Colour ${c + 1}`,
+            onclick: () => device.setSystemByte(97, c + 1),
+          }),
+          color,
+        ),
+      )),
+    ),
+    byteSliderRange("RGB speed (static)", 95, 0, 2, (v) => ["I", "II", "III"][v] ?? String(v)),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "RGB colour sequence"),
+      h("span", { class: "swatches" }, ...Array.from({ length: 9 }, (_, c) => [
+        colored(h("span", { class: "swatch small" }), RGB_COLORS[state[77 + c] - 1] ?? "transparent"),
+        h("input", {
+          type: "number",
+          min: "0",
+          max: "9",
+          title: `Position ${c + 1}: the colour (1…9) at this place in the sequence, 0 = empty`,
+          value: String(state[77 + c]),
+          class: "narrow",
+          onchange: (e: Event) => device.setSystemByte(77 + c, Number((e.target as HTMLInputElement).value)),
+        }),
+      ]).flat()),
+      h("span", { class: "hint" }, "unverified"),
+    ),
+  );
+  return box;
+}
+
+/** [2] CabSim on/off, [7] input gain, [49] global EQ on/off, [3..6] global EQ 100 Hz / 350 Hz / 1.8 kHz / 4 kHz. */
+/** The Bluetooth name: a fixed "M2" prefix (as the official app keeps it) and a part you choose, 17 characters in all. */
+const BT_PREFIX = "M2";
+
+/** The pedal only takes names that start with "M2" (a name without it was replaced by another one), so the prefix
+ *  is added here and the field holds the rest (at most 15 characters). */
+function bluetoothNameRow(): HTMLElement {
+  const full = device.bluetoothName;
+  const rest = full.startsWith(BT_PREFIX) ? full.slice(BT_PREFIX.length) : full;
+  const input = h("input", { type: "text", value: rest, maxLength: 17 - BT_PREFIX.length, ariaLabel: "Bluetooth name (after the M2 prefix)" });
+  const preview = h("span", { class: "hint" }, `Scan name: ${BT_PREFIX}${rest}`);
+  input.addEventListener("input", () => (preview.textContent = `Scan name: ${BT_PREFIX}${input.value.trim()}`));
+  return h(
+    "div",
+    { class: "param" },
+    h("label", {}, "Bluetooth name"),
+    h("span", {}, BT_PREFIX),
+    input,
+    h(
+      "button",
+      {
+        onclick: () => {
+          const name = BT_PREFIX + input.value.trim();
+          if (name === full || !input.value.trim()) return;
+          if (!confirm(`Rename the Bluetooth name to “${name}”? It takes effect after you switch the pedal off and on.`)) return;
+          if (!device.setBluetoothName(name)) alert("Use 1 to 15 plain characters (letters, digits, spaces and punctuation).");
+        },
+      },
+      "Rename",
+    ),
+    preview,
+    h("span", { class: "hint" }, "“M2” is always added: the pedal does not accept other names. Chrome may show the old name until you remove the site's Bluetooth permission."),
+  );
+}
+
+export function globalSection(): HTMLElement {
+  const box = h("section", { class: "mixer" }, h("strong", {}, "Global"));
+  if (!device.systemStateBytes) return box;
+  box.append(
+    h("div", { class: "param" }, h("label", {}, "CabSim"), onOff("on", 2, 1, 0)),
+    byteSlider("Input gain", 7, INPUT_GAIN.length - 1, (raw) => INPUT_GAIN[raw] ?? String(raw)),
+    bluetoothNameRow(),
+    h("div", { class: "param" }, h("label", {}, "Global EQ"), onOff("on", 49, 1, 0)),
+    byteSlider("  100 Hz", 3, 48, eqDb),
+    byteSlider("  350 Hz", 4, 48, eqDb),
+    byteSlider("  1800 Hz", 5, 48, eqDb),
+    byteSlider("  4000 Hz", 6, 48, eqDb),
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Factory reset"),
+      h(
+        "button",
+        {
+          class: "danger",
+          onclick: () =>
+            confirm("Restore the factory settings and presets? ALL your presets and settings on the pedal are erased. Make a backup first (Backup tab).") &&
+            confirm("Last check: erase the pedal and restore the factory state?") &&
+            device.factoryReset(),
+        },
+        "Reset pedal…",
+      ),
+    ),
+  );
+  return box;
+}
+
+// ---- Looper -------------------------------------------------------------------
+
+/** [47] looper volume, 0...100. */
+let loopMsg = "";
+let loopBusy = false;
+
+/** Downloads loop file `id` (1...10) as a WAV; the control data rides after the audio chunk. */
+async function exportLoop(id: number, name: string) {
+  loopBusy = true;
+  loopMsg = `Reading loop ${id}…`;
+  scheduleRender();
+  try {
+    await device.transfer(async () => {
+      const file = await device.readLoopFile(id, (done, total) => {
+        loopMsg = `Reading loop ${id}: ${Math.round((done / total) * 100)}%`;
+        scheduleRender();
+      });
+      const base = (name || file.name || `loop-${id}`).replace(/[^\w.-]+/g, "_");
+      download(`${base}.wav`, buildWav(file.audio, file.control), "audio/wav");
+      loopMsg = `Exported loop ${id} “${file.name}” (${(file.audio.length / 6 / 44100).toFixed(1)} s).`;
+    });
+  } catch (e) {
+    loopMsg = `Error: ${e instanceof Error ? e.message : e}`;
+  } finally {
+    loopBusy = false;
+    scheduleRender();
+  }
+}
+
+let loopTarget = 0;
+
+/** Turns a WAV file into what the pedal stores: 1000 control bytes + 24-bit stereo PCM at 44.1 kHz. */
+async function loopData(file: File): Promise<Uint8Array> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const wav = readWav(bytes);
+  if (!wav) throw new Error("Not a WAV file.");
+  if (wav.audioFormat === 1 && wav.bits === 24 && isPedalFormat(wav)) {
+    // Already in the pedal's format: send the samples untouched, with the control data that follows them.
+    const data = new Uint8Array(LOOP_CONTROL_BYTES + wav.dataSize);
+    data.set(wavControl(bytes, wav), 0);
+    data.set(bytes.subarray(wav.dataOffset, wav.dataOffset + wav.dataSize), LOOP_CONTROL_BYTES);
+    return data;
+  }
+  const context = new AudioContext({ sampleRate: LOOP_SAMPLE_RATE });
+  try {
+    const audio = await context.decodeAudioData(bytes.slice().buffer);
+    const pcm = packPcm24(audio.getChannelData(0), audio.numberOfChannels > 1 ? audio.getChannelData(1) : undefined);
+    const data = new Uint8Array(LOOP_CONTROL_BYTES + pcm.length);
+    data.set(pcm, LOOP_CONTROL_BYTES);
+    return data;
+  } catch {
+    throw new Error("This WAV could not be decoded (compressed formats such as ADPCM are not supported).");
+  } finally {
+    void context.close();
+  }
+}
+
+/** Uploads a WAV to loop slot `id` (1...10), replacing what is there. */
+async function importLoop(file: File, id: number) {
+  const current = device.looperFiles[id - 1];
+  if (current && !current.empty && !confirm(`Replace loop ${id} “${current.name}” with “${file.name}”? The current loop is lost; export it first if you want to keep it.`)) return;
+  loopBusy = true;
+  loopMsg = "Preparing…";
+  scheduleRender();
+  try {
+    if (file.size > LOOP_MAX_BYTES) throw new Error("The file is too large for the pedal.");
+    const data = await loopData(file);
+    if (data.length > LOOP_MAX_BYTES) throw new Error("The loop is too long for the pedal.");
+    const name = file.name.replace(/\.wav$/i, "").replace(/[^\x20-\x7e]+/g, "_").slice(0, 20);
+    await device.transfer(async () => {
+      await device.writeLoopFile(id, name, data, (done, total) => {
+        loopMsg = `Writing loop ${id}: ${Math.round((done / total) * 100)}%`;
+        scheduleRender();
+      });
+    });
+    loopMsg = `Imported “${name}” (${((data.length - LOOP_CONTROL_BYTES) / 6 / LOOP_SAMPLE_RATE).toFixed(1)} s) into loop ${id}.`;
+    device.readLooperFiles();
+  } catch (e) {
+    loopMsg = `Error: ${e instanceof Error ? e.message : e}`;
+  } finally {
+    loopBusy = false;
+    scheduleRender();
+  }
+}
+
+export function looperSection(): HTMLElement {
+  const state = device.systemStateBytes;
+  const box = h("section", { class: "mixer" }, h("strong", {}, "Looper"));
+  if (!state) return box;
+  const volume = Math.min(state[47], 100);
+  const volumeLabel = h("span", { class: "val" }, String(volume));
+  const volumeRow = h(
+    "div",
+    { class: "param" },
+    h("label", {}, "Volume"),
+    h("input", {
+      type: "range",
+      min: "0",
+      max: "100",
+      value: String(volume),
+      oninput: (e: Event) => {
+        const v = Number((e.target as HTMLInputElement).value);
+        device.setSystemByte(47, v);
+        volumeLabel.textContent = String(v);
+      },
+      onpointerdown: () => (ui.dragging = true),
+      onpointerup: () => {
+        ui.dragging = false;
+        scheduleRender();
+      },
+    }),
+    volumeLabel,
+  );
+  // [48]: looper song, 1...10 (the pedal has 10 loop slots).
+  const song = h("select", { onchange: (e: Event) => device.setSystemByte(48, Number((e.target as HTMLSelectElement).value)) });
+  for (let i = 1; i <= Math.max(10, state[48]); i++) song.append(h("option", { value: String(i), selected: i === state[48] }, `Song ${i}`));
+  // Actions are sent as `4d n` (the pedal does not reply).
+  const action = (label: string, n: number, title: string, confirmText?: string) =>
+    h("button", { title, onclick: () => (!confirmText || confirm(confirmText)) && device.looperAction(n) }, label);
+  box.append(
+    h("div", { class: "param" }, h("label", {}, "Song"), song),
+    volumeRow,
+    h(
+      "div",
+      { class: "backup" },
+      action("● Rec", 1, "Record, and keep overdubbing layers until Play"),
+      action("▶ Play", 5, "Leave recording and play what is recorded"),
+      action("⏸ Pause", 2, "Pause everything"),
+      action("↶ Undo", 3, "Undo the layers of the last rec session (in play mode)"),
+      action("🗑 Clear", 4, "Clear the loop", "Clear the loop on the pedal? The recording is deleted."),
+    ),
+    h(
+      "div",
+      { class: "backup" },
+      h("button", { onclick: () => device.readLooperFiles() }, "Read files"),
+      device.looperFiles.length
+        ? h(
+            "span",
+            { class: "hint" },
+            device.looperFiles.map((f, i) => `${i + 1}: ${f.empty ? "empty" : `${f.name || "(no name)"} ${(f.ms / 1000).toFixed(1)} s${f.sync ? " sync" : ""}`}`).join(" · "),
+          )
+        : h("span", { class: "hint" }, "Not read yet"),
+    ),
+    importRow(),
+    device.looperFiles.some((f) => !f.empty)
+      ? h(
+          "div",
+          { class: "backup" },
+          h("strong", {}, "Export"),
+          ...device.looperFiles.flatMap((f, i) =>
+            f.empty ? [] : [h("button", { disabled: loopBusy || device.isTransferring || device.link !== "USB", title: "Download this loop as a WAV (USB only)", onclick: () => void exportLoop(i + 1, f.name) }, `${i + 1}: ${f.name || "loop"}`)],
+          ),
+          loopMsg ? h("span", { class: loopMsg.startsWith("Error") ? "notice-inline" : "hint" }, loopMsg) : null,
+        )
+      : h("span"),
+  );
+  return box;
+}
+
+// ---- Tuner settings ----------------------------------------------------------
+
+/** [44]: reference pitch, Hz = 430 + raw (0...15). [45]: tuner mute, 1 = mute, 2 = no mute. */
+export function tunerSection(): HTMLElement {
+  const state = device.systemStateBytes;
+  const box = h("section", { class: "mixer" }, h("strong", {}, "Tuner"));
+  if (!state) return box;
+  const raw = Math.min(state[44], 15);
+  const label = h("span", { class: "val" }, `${tunerHz(raw)} Hz`);
+  box.append(
+    h(
+      "div",
+      { class: "param" },
+      h("label", {}, "Reference"),
+      h("input", {
+        type: "range",
+        min: "0",
+        max: "15",
+        value: String(raw),
+        oninput: (e: Event) => {
+          const v = Number((e.target as HTMLInputElement).value);
+          device.setSystemByte(44, v);
+          label.textContent = `${tunerHz(v)} Hz`;
+        },
+        onpointerdown: () => (ui.dragging = true),
+        onpointerup: () => {
+          ui.dragging = false;
+          scheduleRender();
+        },
+      }),
+      label,
+      h("label", { class: "on" }, h("input", {
+        type: "checkbox",
+        checked: state[45] === 1,
+        onchange: (e: Event) => device.setSystemByte(45, (e.target as HTMLInputElement).checked ? 1 : 2),
+      }), " mute"),
+    ),
+  );
+  return box;
+}
+
+function importRow(): HTMLElement {
+  if (!loopTarget) loopTarget = Math.max(1, device.looperFiles.findIndex((f) => f.empty) + 1 || 1);
+  const slot = h("select", { ariaLabel: "Import into loop slot", onchange: (e: Event) => (loopTarget = Number((e.target as HTMLSelectElement).value)) });
+  for (let i = 1; i <= 10; i++) {
+    const f = device.looperFiles[i - 1];
+    slot.append(h("option", { value: String(i), selected: i === loopTarget }, `${i}${f ? (f.empty ? " (empty)" : ` ${f.name}`) : ""}`));
+  }
+  const input = h("input", {
+    type: "file",
+    ariaLabel: "Choose a loop file",
+    accept: ".wav,audio/wav",
+    hidden: true,
+    onchange: (e: Event) => {
+      const el = e.target as HTMLInputElement;
+      if (el.files?.[0]) void importLoop(el.files[0], loopTarget);
+      el.value = "";
+    },
+  });
+  const disabled = loopBusy || device.isTransferring || device.link !== "USB";
+  return h(
+    "div",
+    { class: "backup" },
+    h("strong", {}, "Import"),
+    h("span", {}, "WAV into slot"),
+    slot,
+    h("button", { disabled, title: "Upload a WAV into this loop slot (USB only). 24-bit stereo 44.1 kHz WAVs are sent untouched.", onclick: () => input.click() }, "Import WAV…"),
+    input,
+    device.link !== "USB" ? h("span", { class: "hint" }, "USB only") : null,
+  );
+}
